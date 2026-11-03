@@ -171,21 +171,21 @@
       <p class="meta">Updated every week as we test with real users and learn what works.</p>
 
       <h3>1. Target User & The Job to Be Done</h3>
-      <p><strong>Who is this for?</strong> [Name a specific, reachable person or role you have direct access to.]</p>
-      <p><strong>The painful "Before" workflow:</strong> [How do they do this today, and why is it slow, manual, or broken?]</p>
-      <p><strong>The "After" workflow with this product:</strong> [What does your tool do for them in one sitting?]</p>
+      <p><strong>Who is this for?</strong> Comms firms that do news roundups for clients across multiple domains. E.g., when I worked at a PR agency, we would do a weekly newsletter for a B2B payments company, focused on news across FX, macroeconomics, fraud, etc..</p>
+      <p><strong>The painful "Before" workflow:</strong> We manually search the web for the most relevant news in those categories from that week. We have access to subscriptions, but the company does not so if there's a paywall, they won't be able to read it.</p>
+      <p><strong>The "After" workflow with this product:</strong> The tool scours the web for the relevant articles that week per category. It hyperlinks the direct link to the site and gives a 3 sentence summary of the article. For articles that require a subscription, a browser “add to newsletter” button lets the user capture articles they’re already logged in to read. The tool summarizes and links them without having to store login credentials.</p>
 
       <h3>2. Scope & Explicit Non-Goals</h3>
       <ul>
-        <li><strong>In Scope (Core Workflow):</strong> [The 1 main workflow this product does reliably]</li>
-        <li><strong>Out of Scope #1:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
-        <li><strong>Out of Scope #2:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
-        <li><strong>Out of Scope #3:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
+        <li><strong>In Scope (Core Workflow):</strong> Automates newsletter creation based on industry categories and solves the paywall issue. It finds candidate articles per category from news feeds and search, then ranks them by relevance. It drafts a 3-sentence summary of each article. User reviews and edits the picks then is able to email the newsletter directly to client.</li>
+        <li><strong>Out of Scope #1:</strong> Sending newsletters to clients automatically. The tool only produces a draft newsletter that a human approves and sends through the agency's email.</li>
+        <li><strong>Out of Scope #2:</strong> Storing and using an agency's paid subscription credentials. The tool will use RSS feeds, news search APIs, and publicly available sites first.</li>
+        <li><strong>Out of Scope #3:</strong> Attaching full article PDFs from paywalled sites.</li>
       </ul>
 
       <h3>3. How It Works Under the Hood & Riskiest Assumption (Week 2+)</h3>
-      <p><strong>Riskiest Assumption:</strong> [What is the #1 technical or user risk that could sink this product?]</p>
-      <p><strong>Simple Architecture:</strong> [User Input] → [Your App / Server] → [AI Model / Tool] → [Output]</p>
+      <p><strong>Riskiest Assumption:</strong> The AI will pick and prioritize the articles and news sources that a PR professional would pick. It also risks the AI summarizing articles from public headlines and subheadlines if it can't bypass a paywall.</p>
+      <p><strong>Simple Architecture:</strong> Client categories, keywords, priority sources→ App server pulls this week's articles from RSS feeds/a news API → LLM ranks relevance per category and drafts 3-sentence summary → User reviews and edits the output → User exports newsletter drafts and shares with client directly.</p>
 
       <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">
