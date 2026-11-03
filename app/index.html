@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client News Digest · Prototype</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #1d63dc;
+      --accent-soft: #eff6ff;
+      --keep: #15803d;
+      --keep-soft: #ecfdf3;
+      --remove: #b91c1c;
+      --remove-soft: #fef2f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+    header { margin-bottom: 24px; }
+    h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0; }
+    .badge {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
+      padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
+    }
+
+    /* Step indicator */
+    .steps { display: flex; gap: 8px; margin: 20px 0 24px; flex-wrap: wrap; }
+    .step {
+      flex: 1; min-width: 150px; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); font-size: 14px; font-weight: 600;
+    }
+    .step.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .step.done { color: var(--text); }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; margin-bottom: 20px;
+    }
+    h2 { font-size: 20px; margin: 0 0 16px; }
+    h3 { font-size: 17px; margin: 0 0 12px; }
+
+    label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%; padding: 10px 12px; font-size: 15px;
+      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;
+    }
+    input[type="text"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .hint { color: var(--muted); font-size: 13px; margin: -8px 0 16px; }
+    .error { color: var(--remove); font-size: 14px; margin: 0 0 12px; }
+
+    button {
+      font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+      padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text);
+    }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+
+    /* Articles */
+    .category { margin-bottom: 28px; }
+    .article {
+      border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+      margin-bottom: 12px; background: var(--card);
+    }
+    .article.kept { border-color: #86efac; background: var(--keep-soft); }
+    .article.removed { opacity: 0.5; background: var(--remove-soft); }
+    .article.removed .headline { text-decoration: line-through; }
+    .headline { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+    .meta { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+    .meta a { color: var(--accent); }
+    .paywall {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      color: #92400e; background: #fef3c7; padding: 1px 6px; border-radius: 4px; margin-left: 6px;
+    }
+    .summary { margin: 0 0 12px; font-size: 14px; }
+    .article-buttons { display: flex; gap: 8px; }
+    .btn-keep.on { background: var(--keep); color: #fff; border-color: var(--keep); }
+    .btn-remove.on { background: var(--remove); color: #fff; border-color: var(--remove); }
+    .tally { color: var(--muted); font-size: 14px; }
+
+    textarea {
+      width: 100%; min-height: 460px; padding: 14px; font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      border: 1px solid var(--border); border-radius: 8px; resize: vertical;
+      margin-bottom: 16px;
+    }
+    .copied { color: var(--keep); font-size: 14px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Client News Digest <span class="badge">Prototype · sample data</span></h1>
+      <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
+    </header>
+
+    <div class="steps">
+      <div class="step" id="step-ind-1">1 · Client &amp; categories</div>
+      <div class="step" id="step-ind-2">2 · Review articles</div>
+      <div class="step" id="step-ind-3">3 · Export draft</div>
+    </div>
+
+    <!-- STEP 1: client + categories form -->
+    <section class="card" id="step-1">
+      <h2>Who is this digest for?</h2>
+      <form id="setup-form">
+        <label for="client">Client name</label>
+        <input type="text" id="client" placeholder="e.g., Acme Payments" />
+
+        <label>Three news categories</label>
+        <p class="hint">Try FX, Macroeconomy and Fraud. Other categories get generic placeholder articles.</p>
+        <div class="grid-3">
+          <input type="text" class="category-input" value="FX" />
+          <input type="text" class="category-input" value="Macroeconomy" />
+          <input type="text" class="category-input" value="Fraud" />
+        </div>
+
+        <p class="error" id="form-error" hidden></p>
+        <div class="actions">
+          <span></span>
+          <button type="submit" class="primary">Find articles →</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- STEP 2: review articles -->
+    <section class="card" id="step-2" hidden>
+      <h2 id="results-title">This week's articles</h2>
+      <div id="results"></div>
+      <div class="actions">
+        <button type="button" id="back-to-1">← Edit categories</button>
+        <span class="tally" id="tally"></span>
+        <button type="button" class="primary" id="export">Export draft →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: newsletter text -->
+    <section class="card" id="step-3" hidden>
+      <h2>Newsletter draft</h2>
+      <p class="sub" style="margin-bottom:12px">Copy this into your email. Review before sending to the client.</p>
+      <textarea id="draft" readonly></textarea>
+      <div class="actions">
+        <button type="button" id="back-to-2">← Back to review</button>
+        <span class="copied" id="copied" hidden>Copied!</span>
+        <button type="button" class="primary" id="copy">Copy to clipboard</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---------------------------------------------------------------
+    // Fake sample data. All outlets, headlines and links are made up.
+    // In a later build this is where real search results would go.
+    // ---------------------------------------------------------------
+    const SAMPLE_ARTICLES = {
+      fx: [
+        {
+          headline: "Dollar slips as traders price in a slower pace of rate cuts",
+          source: "Global Markets Wire",
+          url: "https://example.com/fx/dollar-slips",
+          paywalled: false,
+          summary: "The US dollar fell against a basket of major currencies after softer-than-expected jobs data. Traders now expect the central bank to move more cautiously through year-end. Analysts say the shift could make cross-border payments cheaper for importers paying in dollars."
+        },
+        {
+          headline: "Euro hits three-month high on stronger factory output",
+          source: "The Currency Desk",
+          url: "https://example.com/fx/euro-high",
+          paywalled: true,
+          summary: "The euro climbed to its strongest level since August after manufacturing data beat forecasts across the bloc. Exporters warned that a stronger currency could squeeze margins heading into the holiday season. Treasury teams at multinational firms are revisiting hedging plans for the first quarter."
+        },
+        {
+          headline: "Emerging-market currencies rally as volatility eases",
+          source: "Frontier Finance Daily",
+          url: "https://example.com/fx/em-rally",
+          paywalled: false,
+          summary: "Currencies in Latin America and Southeast Asia posted their best week in two months. Investors returned to higher-yielding markets as global volatility measures fell. Payment providers serving these corridors reported a rise in remittance volumes."
+        }
+      ],
+      macroeconomy: [
+        {
+          headline: "Inflation cools for third straight month, easing pressure on consumers",
+          source: "Economy Now",
+          url: "https://example.com/macro/inflation-cools",
+          paywalled: false,
+          summary: "Consumer prices rose less than expected last month, driven by lower energy and used-car costs. Core inflation, which excludes food and fuel, also edged down. Economists say the trend gives policymakers room to keep rates steady."
+        },
+        {
+          headline: "Small-business confidence ticks up despite tight credit",
+          source: "Main Street Ledger",
+          url: "https://example.com/macro/smb-confidence",
+          paywalled: true,
+          summary: "A monthly survey of small-business owners showed optimism rising for the first time since spring. Owners cited steadier demand but said borrowing remains expensive. Many plan to delay hiring until financing costs come down."
+        },
+        {
+          headline: "Global trade volumes recover as shipping bottlenecks clear",
+          source: "Trade & Freight Review",
+          url: "https://example.com/macro/trade-recovers",
+          paywalled: false,
+          summary: "Container shipping volumes returned to pre-disruption levels on key Asia–Europe routes. Freight rates have fallen by roughly a third since summer. The recovery is expected to lift B2B payment volumes tied to cross-border trade."
+        }
+      ],
+      fraud: [
+        {
+          headline: "Regulators warn of surge in business email compromise scams",
+          source: "Risk & Compliance Today",
+          url: "https://example.com/fraud/bec-surge",
+          paywalled: false,
+          summary: "Financial regulators issued an alert about a sharp rise in fake invoice and vendor-impersonation schemes. Mid-sized companies with manual approval processes were the most frequent targets. The alert recommends verifying payment changes through a second channel."
+        },
+        {
+          headline: "Banks pilot shared database to flag mule accounts in real time",
+          source: "The Payments Ledger",
+          url: "https://example.com/fraud/mule-database",
+          paywalled: true,
+          summary: "A group of banks launched a pilot that shares signals on suspected money-mule accounts. Early results show faster detection of funds moving through chains of accounts. Privacy advocates have asked for clearer rules on how long data is kept."
+        },
+        {
+          headline: "AI voice cloning drives new wave of payment authorization fraud",
+          source: "Cyber Finance Weekly",
+          url: "https://example.com/fraud/voice-cloning",
+          paywalled: false,
+          summary: "Security firms report a rise in scams that use cloned executive voices to approve urgent transfers. Losses per incident are higher than traditional phishing because the requests seem legitimate. Experts recommend callback procedures and code words for large payments."
+        }
+      ]
+    };
+
+    // Lets people type "Macro" or "Foreign exchange" and still match.
+    const CATEGORY_ALIASES = {
+      "fx": "fx", "foreign exchange": "fx", "currency": "fx", "currencies": "fx",
+      "macroeconomy": "macroeconomy", "macroeconomics": "macroeconomy", "macro": "macroeconomy", "economy": "macroeconomy",
+      "fraud": "fraud", "payments fraud": "fraud", "financial crime": "fraud"
+    };
+
+    // Placeholder articles for any category without sample data.
+    function genericArticles(category) {
+      const slug = category.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      return [
+        {
+          headline: `${category}: industry leaders weigh in on this week's biggest shift`,
+          source: "Sample News Network",
+          url: `https://example.com/${slug}/leaders`,
+          paywalled: false,
+          summary: `This is placeholder text for the ${category} category. In the real app, this summary would describe a recent article in three sentences. It would explain why the story matters to the client.`
+        },
+        {
+          headline: `New report highlights risks and opportunities in ${category}`,
+          source: "Sample Industry Journal",
+          url: `https://example.com/${slug}/report`,
+          paywalled: true,
+          summary: `A sample research report on ${category} would be summarized here. The summary would note the main finding and who published it. It would end with the implication for the client's business.`
+        },
+        {
+          headline: `Regulators and startups move on ${category} ahead of year-end`,
+          source: "Sample Business Daily",
+          url: `https://example.com/${slug}/year-end`,
+          paywalled: false,
+          summary: `This placeholder stands in for a third ${category} story. Real results would be ranked by relevance to the client. The PR team would then keep or remove it before export.`
+        }
+      ];
+    }
+
+    // ---------------------------------------------------------------
+    // App state
+    // ---------------------------------------------------------------
+    let state = { client: "", categories: [] }; // categories: [{ name, articles: [{...article, status}] }]
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function showStep(n) {
+      [1, 2, 3].forEach((i) => {
+        $(`step-${i}`).hidden = i !== n;
+        const ind = $(`step-ind-${i}`);
+        ind.classList.toggle("active", i === n);
+        ind.classList.toggle("done", i < n);
+      });
+      window.scrollTo(0, 0);
+    }
+
+    // ---------------------------------------------------------------
+    // Step 1 → 2: look up sample articles
+    // ---------------------------------------------------------------
+    $("setup-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const client = $("client").value.trim();
+      const names = [...document.querySelectorAll(".category-input")].map((el) => el.value.trim());
+
+      const error = $("form-error");
+      if (!client || names.some((n) => !n)) {
+        error.textContent = "Please enter a client name and all three categories.";
+        error.hidden = false;
+        return;
+      }
+      error.hidden = true;
+
+      state.client = client;
+      state.categories = names.map((name) => {
+        const key = CATEGORY_ALIASES[name.toLowerCase()];
+        const articles = key ? SAMPLE_ARTICLES[key] : genericArticles(name);
+        return { name, articles: articles.map((a) => ({ ...a, status: "kept" })) };
+      });
+
+      renderResults();
+      showStep(2);
+    });
+
+    // ---------------------------------------------------------------
+    // Step 2: review with keep / remove
+    // ---------------------------------------------------------------
+    function renderResults() {
+      $("results-title").textContent = `This week's articles for ${state.client}`;
+
+      $("results").innerHTML = state.categories.map((cat, ci) => `
+        <div class="category">
+          <h3>${escapeHtml(cat.name)}</h3>
+          ${cat.articles.map((a, ai) => `
+            <div class="article ${a.status}">
+              <p class="headline">${escapeHtml(a.headline)}</p>
+              <p class="meta">
+                ${escapeHtml(a.source)} ·
+                <a href="${a.url}" target="_blank" rel="noopener">${a.url}</a>
+                ${a.paywalled ? '<span class="paywall">Paywall</span>' : ""}
+              </p>
+              <p class="summary">${escapeHtml(a.summary)}</p>
+              <div class="article-buttons">
+                <button type="button" class="btn-keep ${a.status === "kept" ? "on" : ""}" data-cat="${ci}" data-art="${ai}" data-status="kept">Keep</button>
+                <button type="button" class="btn-remove ${a.status === "removed" ? "on" : ""}" data-cat="${ci}" data-art="${ai}" data-status="removed">Remove</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `).join("");
+
+      const all = state.categories.flatMap((c) => c.articles);
+      const kept = all.filter((a) => a.status === "kept").length;
+      $("tally").textContent = `${kept} of ${all.length} articles kept`;
+    }
+
+    $("results").addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-status]");
+      if (!btn) return;
+      state.categories[btn.dataset.cat].articles[btn.dataset.art].status = btn.dataset.status;
+      renderResults();
+    });
+
+    $("back-to-1").addEventListener("click", () => showStep(1));
+
+    // ---------------------------------------------------------------
+    // Step 3: build plain-text newsletter
+    // ---------------------------------------------------------------
+    function buildDraft() {
+      const week = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const lines = [
+        `${state.client} · Weekly News Digest`,
+        `Week of ${week}`,
+        "",
+        `Hi team, here are this week's top stories across ${state.categories.map((c) => c.name).join(", ")}.`,
+        ""
+      ];
+
+      state.categories.forEach((cat) => {
+        const kept = cat.articles.filter((a) => a.status === "kept");
+        lines.push(cat.name.toUpperCase(), "-".repeat(cat.name.length));
+        if (kept.length === 0) {
+          lines.push("No articles selected this week.", "");
+          return;
+        }
+        kept.forEach((a, i) => {
+          lines.push(`${i + 1}. ${a.headline} (${a.source}${a.paywalled ? ", subscription required" : ""})`);
+          lines.push(`   ${a.summary}`);
+          lines.push(`   Read more: ${a.url}`);
+          lines.push("");
+        });
+      });
+
+      lines.push("Best,", "[Your name]");
+      return lines.join("\n");
+    }
+
+    $("export").addEventListener("click", () => {
+      $("draft").value = buildDraft();
+      $("copied").hidden = true;
+      showStep(3);
+    });
+
+    $("back-to-2").addEventListener("click", () => showStep(2));
+
+    $("copy").addEventListener("click", async () => {
+      const draft = $("draft");
+      try {
+        await navigator.clipboard.writeText(draft.value);
+      } catch {
+        // Fallback for browsers that block the clipboard API on local files.
+        draft.select();
+        document.execCommand("copy");
+      }
+      $("copied").hidden = false;
+    });
+
+    showStep(1);
+  </script>
+</body>
+</html>
