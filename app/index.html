@@ -17,6 +17,9 @@
       --keep-soft: #ecfdf3;
       --remove: #b91c1c;
       --remove-soft: #fef2f2;
+      --warn-bg: #fffbeb;
+      --warn-border: #fde68a;
+      --warn-text: #92400e;
     }
     * { box-sizing: border-box; }
     body {
@@ -54,46 +57,103 @@
     h3 { font-size: 17px; margin: 0 0 12px; }
 
     label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-    input[type="text"] {
-      width: 100%; padding: 10px 12px; font-size: 15px;
+    .optional { font-weight: 400; color: var(--muted); }
+    input[type="text"], input[type="url"], select, textarea.field {
+      width: 100%; padding: 10px 12px; font: inherit; font-size: 15px;
       border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;
+      background: #fff;
     }
-    input[type="text"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    input:focus, select:focus, textarea.field:focus { outline: 2px solid var(--accent); border-color: transparent; }
     .hint { color: var(--muted); font-size: 13px; margin: -8px 0 16px; }
     .error { color: var(--remove); font-size: 14px; margin: 0 0 12px; }
+    .notice {
+      background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text);
+      border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; font-size: 14px;
+    }
+    .notice code { background: #fff; padding: 1px 5px; border-radius: 4px; }
 
     button {
       font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
       padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
       background: var(--card); color: var(--text);
     }
+    button:disabled { opacity: 0.4; cursor: default; }
     button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.small { padding: 5px 10px; font-size: 13px; }
     .actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+
+    /* Category inputs */
+    .category-row {
+      border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 0;
+      margin-bottom: 12px; background: var(--bg);
+    }
+    .category-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .category-row-head label { margin: 0; }
+    .category-fields { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 0 10px; }
+    .category-fields label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    .category-fields input { margin-bottom: 14px; font-size: 14px; }
+    @media (max-width: 640px) { .category-fields { grid-template-columns: 1fr; } }
+    .remove-category { color: var(--remove); }
+    #add-category { margin-bottom: 20px; }
+    textarea#priority-sources { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
     /* Articles */
     .category { margin-bottom: 28px; }
+    .status { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+    .status.fail { color: var(--remove); }
+    .status.weak {
+      color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border);
+      border-radius: 8px; padding: 8px 12px;
+    }
     .article {
       border: 1px solid var(--border); border-radius: 10px; padding: 16px;
       margin-bottom: 12px; background: var(--card);
     }
-    .article.kept { border-color: #86efac; background: var(--keep-soft); }
-    .article.removed { opacity: 0.5; background: var(--remove-soft); }
-    .article.removed .headline { text-decoration: line-through; }
-    .headline { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
-    .meta { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
-    .meta a { color: var(--accent); }
-    .paywall {
-      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-      color: #92400e; background: #fef3c7; padding: 1px 6px; border-radius: 4px; margin-left: 6px;
+    .article.filtered { border-style: dashed; background: var(--bg); }
+    .article.feedback-card { border-color: #fca5a5; background: var(--remove-soft); }
+    .removed-line {
+      display: flex; gap: 10px; align-items: center; justify-content: space-between;
+      border: 1px dashed var(--border); border-radius: 8px; padding: 6px 12px;
+      margin-bottom: 12px; font-size: 13px; color: var(--muted);
     }
+    .removed-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .filtered-toggle { margin: 4px 0 12px; }
+    .headline { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+    .headline a { color: inherit; text-decoration: none; }
+    .headline a:hover { text-decoration: underline; }
+    .meta { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+    .meta a { color: var(--accent); }
+    .tag {
+      display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 1px 6px; border-radius: 4px; margin-right: 6px;
+    }
+    .tag.priority { color: #065f46; background: #d1fae5; }
+    .tag.other { color: #374151; background: #f3f4f6; }
+    .tag.manual { color: #5b21b6; background: #ede9fe; }
+    .tag.report { color: #92400e; background: #fef3c7; }
+    .tag.filter { color: #fff; background: #6b7280; }
     .summary { margin: 0 0 12px; font-size: 14px; }
-    .article-buttons { display: flex; gap: 8px; }
-    .btn-keep.on { background: var(--keep); color: #fff; border-color: var(--keep); }
-    .btn-remove.on { background: var(--remove); color: #fff; border-color: var(--remove); }
+    .article-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn-add { color: var(--keep); border-color: #86efac; }
+    .btn-remove { color: var(--remove); }
+    button.link { border: none; background: none; color: var(--accent); padding: 0; font-size: 13px; }
     .tally { color: var(--muted); font-size: 14px; }
 
-    textarea {
+    /* Remove-feedback box */
+    .feedback p { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+    .feedback .feedback-headline { font-weight: 400; color: var(--muted); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
+    .chip.on { background: var(--remove); color: #fff; border-color: var(--remove); }
+    .feedback textarea { margin-bottom: 10px; font-size: 14px; }
+
+    /* Manual add form */
+    .manual { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 24px; }
+    .manual-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
+    @media (max-width: 560px) { .manual-grid { grid-template-columns: 1fr; } }
+    .manual summary { cursor: pointer; font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+
+    textarea#draft {
       width: 100%; min-height: 460px; padding: 14px; font-size: 13px;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       border: 1px solid var(--border); border-radius: 8px; resize: vertical;
@@ -105,9 +165,15 @@
 <body>
   <div class="container">
     <header>
-      <h1>Client News Digest <span class="badge">Prototype · sample data</span></h1>
+      <h1>Client News Digest <span class="badge">Prototype</span></h1>
       <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
     </header>
+
+    <div class="notice" id="file-warning" hidden>
+      This page needs its local server to fetch news. In Terminal, run
+      <code>python3 ~/Documents/ss11807-battlecardbuilder/app/server.py</code>
+      then open <a href="http://localhost:8000">http://localhost:8000</a>.
+    </div>
 
     <div class="steps">
       <div class="step" id="step-ind-1">1 · Client &amp; categories</div>
@@ -115,20 +181,30 @@
       <div class="step" id="step-ind-3">3 · Export draft</div>
     </div>
 
-    <!-- STEP 1: client + categories form -->
+    <!-- STEP 1: client, priority sources, categories -->
     <section class="card" id="step-1">
       <h2>Who is this digest for?</h2>
       <form id="setup-form">
         <label for="client">Client name</label>
         <input type="text" id="client" placeholder="e.g., Acme Payments" />
 
-        <label>Three news categories</label>
-        <p class="hint">Try FX, Macroeconomy and Fraud. Other categories get generic placeholder articles.</p>
-        <div class="grid-3">
-          <input type="text" class="category-input" value="FX" />
-          <input type="text" class="category-input" value="Macroeconomy" />
-          <input type="text" class="category-input" value="Fraud" />
-        </div>
+        <label for="priority-sources">Priority sources</label>
+        <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
+        <textarea class="field" id="priority-sources" rows="7">reuters.com
+bloomberg.com
+ft.com
+wsj.com
+cnbc.com
+paymentsdive.com
+americanbanker.com</textarea>
+
+        <label>News categories</label>
+        <p class="hint">
+          The name is what appears in the newsletter. Search terms are sent to Google News as typed, so
+          "quotes", OR and -minus work (blank = use the name). Excluded words drop matching articles.
+        </p>
+        <div id="category-list"></div>
+        <button type="button" id="add-category">+ Add category</button>
 
         <p class="error" id="form-error" hidden></p>
         <div class="actions">
@@ -141,7 +217,32 @@
     <!-- STEP 2: review articles -->
     <section class="card" id="step-2" hidden>
       <h2 id="results-title">This week's articles</h2>
+
+      <details class="manual" id="manual-box" open>
+        <summary>Add an article manually</summary>
+        <form id="manual-form">
+          <p class="hint" style="margin-top:-6px">For paywalled or hand-picked stories the search missed. Manual articles are included in the newsletter and never filtered.</p>
+          <div class="manual-grid">
+            <div>
+              <label for="manual-url">Article URL</label>
+              <input type="url" id="manual-url" placeholder="https://..." />
+            </div>
+            <div>
+              <label for="manual-category">Category</label>
+              <select id="manual-category"></select>
+            </div>
+          </div>
+          <label for="manual-headline">Headline</label>
+          <input type="text" id="manual-headline" />
+          <label for="manual-summary">Summary <span class="optional">(optional)</span></label>
+          <textarea class="field" id="manual-summary" rows="3"></textarea>
+          <p class="error" id="manual-error" hidden></p>
+          <button type="submit">Add article</button>
+        </form>
+      </details>
+
       <div id="results"></div>
+
       <div class="actions">
         <button type="button" id="back-to-1">← Edit categories</button>
         <span class="tally" id="tally"></span>
@@ -163,126 +264,87 @@
   </div>
 
   <script>
+    const MIN_CATEGORIES = 3;
+    const MAX_CATEGORIES = 8;
+    const FEEDBACK_REASONS = ["Off-topic", "Low-quality source", "Not this week", "Industry report"];
+    const REPORT_WORDS = /\b(report|survey|index|outlook|whitepaper|white paper)\b/i;
+
     // ---------------------------------------------------------------
-    // Fake sample data. All outlets, headlines and links are made up.
-    // In a later build this is where real search results would go.
+    // Content filters: edit these lists to change what gets hidden.
+    // A fetched article is filtered if its headline or source contains
+    // any of these terms (case-insensitive, whole words). Manual
+    // articles are never filtered.
     // ---------------------------------------------------------------
-    const SAMPLE_ARTICLES = {
-      fx: [
-        {
-          headline: "Dollar slips as traders price in a slower pace of rate cuts",
-          source: "Global Markets Wire",
-          url: "https://example.com/fx/dollar-slips",
-          paywalled: false,
-          summary: "The US dollar fell against a basket of major currencies after softer-than-expected jobs data. Traders now expect the central bank to move more cautiously through year-end. Analysts say the shift could make cross-border payments cheaper for importers paying in dollars."
-        },
-        {
-          headline: "Euro hits three-month high on stronger factory output",
-          source: "The Currency Desk",
-          url: "https://example.com/fx/euro-high",
-          paywalled: true,
-          summary: "The euro climbed to its strongest level since August after manufacturing data beat forecasts across the bloc. Exporters warned that a stronger currency could squeeze margins heading into the holiday season. Treasury teams at multinational firms are revisiting hedging plans for the first quarter."
-        },
-        {
-          headline: "Emerging-market currencies rally as volatility eases",
-          source: "Frontier Finance Daily",
-          url: "https://example.com/fx/em-rally",
-          paywalled: false,
-          summary: "Currencies in Latin America and Southeast Asia posted their best week in two months. Investors returned to higher-yielding markets as global volatility measures fell. Payment providers serving these corridors reported a rise in remittance volumes."
-        }
-      ],
-      macroeconomy: [
-        {
-          headline: "Inflation cools for third straight month, easing pressure on consumers",
-          source: "Economy Now",
-          url: "https://example.com/macro/inflation-cools",
-          paywalled: false,
-          summary: "Consumer prices rose less than expected last month, driven by lower energy and used-car costs. Core inflation, which excludes food and fuel, also edged down. Economists say the trend gives policymakers room to keep rates steady."
-        },
-        {
-          headline: "Small-business confidence ticks up despite tight credit",
-          source: "Main Street Ledger",
-          url: "https://example.com/macro/smb-confidence",
-          paywalled: true,
-          summary: "A monthly survey of small-business owners showed optimism rising for the first time since spring. Owners cited steadier demand but said borrowing remains expensive. Many plan to delay hiring until financing costs come down."
-        },
-        {
-          headline: "Global trade volumes recover as shipping bottlenecks clear",
-          source: "Trade & Freight Review",
-          url: "https://example.com/macro/trade-recovers",
-          paywalled: false,
-          summary: "Container shipping volumes returned to pre-disruption levels on key Asia–Europe routes. Freight rates have fallen by roughly a third since summer. The recovery is expected to lift B2B payment volumes tied to cross-border trade."
-        }
-      ],
-      fraud: [
-        {
-          headline: "Regulators warn of surge in business email compromise scams",
-          source: "Risk & Compliance Today",
-          url: "https://example.com/fraud/bec-surge",
-          paywalled: false,
-          summary: "Financial regulators issued an alert about a sharp rise in fake invoice and vendor-impersonation schemes. Mid-sized companies with manual approval processes were the most frequent targets. The alert recommends verifying payment changes through a second channel."
-        },
-        {
-          headline: "Banks pilot shared database to flag mule accounts in real time",
-          source: "The Payments Ledger",
-          url: "https://example.com/fraud/mule-database",
-          paywalled: true,
-          summary: "A group of banks launched a pilot that shares signals on suspected money-mule accounts. Early results show faster detection of funds moving through chains of accounts. Privacy advocates have asked for clearer rules on how long data is kept."
-        },
-        {
-          headline: "AI voice cloning drives new wave of payment authorization fraud",
-          source: "Cyber Finance Weekly",
-          url: "https://example.com/fraud/voice-cloning",
-          paywalled: false,
-          summary: "Security firms report a rise in scams that use cloned executive voices to approve urgent transfers. Losses per incident are higher than traditional phishing because the requests seem legitimate. Experts recommend callback procedures and code words for large payments."
-        }
-      ]
+    const FILTER_TERMS = {
+      opinion: ["Opinion", "Op-Ed", "Commentary", "Column", "Editorial", "Viewpoint"],
+      podcast: ["Podcast", "Episode", "Ep.", "Transcript", "Listen:"]
     };
 
-    // Lets people type "Macro" or "Foreign exchange" and still match.
-    const CATEGORY_ALIASES = {
-      "fx": "fx", "foreign exchange": "fx", "currency": "fx", "currencies": "fx",
-      "macroeconomy": "macroeconomy", "macroeconomics": "macroeconomy", "macro": "macroeconomy", "economy": "macroeconomy",
-      "fraud": "fraud", "payments fraud": "fraud", "financial crime": "fraud"
-    };
+    function escapeRegex(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
 
-    // Placeholder articles for any category without sample data.
-    function genericArticles(category) {
-      const slug = category.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      return [
-        {
-          headline: `${category}: industry leaders weigh in on this week's biggest shift`,
-          source: "Sample News Network",
-          url: `https://example.com/${slug}/leaders`,
-          paywalled: false,
-          summary: `This is placeholder text for the ${category} category. In the real app, this summary would describe a recent article in three sentences. It would explain why the story matters to the client.`
-        },
-        {
-          headline: `New report highlights risks and opportunities in ${category}`,
-          source: "Sample Industry Journal",
-          url: `https://example.com/${slug}/report`,
-          paywalled: true,
-          summary: `A sample research report on ${category} would be summarized here. The summary would note the main finding and who published it. It would end with the implication for the client's business.`
-        },
-        {
-          headline: `Regulators and startups move on ${category} ahead of year-end`,
-          source: "Sample Business Daily",
-          url: `https://example.com/${slug}/year-end`,
-          paywalled: false,
-          summary: `This placeholder stands in for a third ${category} story. Real results would be ranked by relevance to the client. The PR team would then keep or remove it before export.`
-        }
-      ];
+    // One regex per reason; terms only match as whole words ("Column" won't match "Columbia").
+    const FILTERS = Object.entries(FILTER_TERMS).map(([reason, terms]) => ({
+      reason,
+      pattern: new RegExp(`(^|[^\\w])(${terms.map(escapeRegex).join("|")})(?=[^\\w]|$)`, "i")
+    }));
+
+    function filterReason(article) {
+      const text = `${article.headline} ${article.source}`;
+      const match = FILTERS.find((f) => f.pattern.test(text));
+      return match ? match.reason : "";
     }
 
     // ---------------------------------------------------------------
     // App state
+    // categories: [{ name, terms, exclude, status: "loading" | "ok" | "error", error, showFiltered }]
+    // articles:   every fetched and manual article, keyed by id. Each has a
+    //             category name and a status of "included", "removed" or
+    //             "filtered" (hidden until the user includes it).
+    // order:      ids of included and removed articles, in display order.
+    //             Removed ones keep their spot so Undo puts them back there.
+    //             The draft uses the included ones in this order.
     // ---------------------------------------------------------------
-    let state = { client: "", categories: [] }; // categories: [{ name, articles: [{...article, status}] }]
+    let state = { client: "", priority: [], categories: [], articles: {}, order: [] };
+    let nextId = 1;
 
     const $ = (id) => document.getElementById(id);
 
     function escapeHtml(text) {
-      return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function isWebUrl(text) {
+      try {
+        const url = new URL(text);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    // "https://www.Reuters.com/markets" -> "reuters.com"
+    function cleanDomain(text) {
+      return text.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    }
+
+    function isPriority(domain) {
+      return state.priority.some((site) => domain === site || domain.endsWith("." + site));
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    function timeAgo(iso) {
+      if (!iso) return "date unknown";
+      const hours = Math.floor((Date.now() - new Date(iso)) / 3600000);
+      if (hours < 1) return "less than an hour ago";
+      if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+      const days = Math.floor(hours / 24);
+      return `${days} day${days === 1 ? "" : "s"} ago`;
     }
 
     function showStep(n) {
@@ -295,76 +357,369 @@
       window.scrollTo(0, 0);
     }
 
+    // Opening the file by double-click can't reach the server.
+    if (location.protocol === "file:") $("file-warning").hidden = false;
+
     // ---------------------------------------------------------------
-    // Step 1 → 2: look up sample articles
+    // Step 1: category inputs (min 3, extra ones removable)
+    // ---------------------------------------------------------------
+    function addCategoryInput() {
+      const list = $("category-list");
+      const n = list.children.length + 1;
+      const row = document.createElement("div");
+      row.className = "category-row";
+      row.innerHTML = `
+        <div class="category-row-head">
+          <label>Category ${n}</label>
+        </div>
+        <div class="category-fields">
+          <div>
+            <label>Name</label>
+            <input type="text" class="cat-name" placeholder="e.g., FX" />
+          </div>
+          <div>
+            <label>Search terms <span class="optional">(optional)</span></label>
+            <input type="text" class="cat-terms" placeholder='e.g., "foreign exchange" OR currency' />
+          </div>
+          <div>
+            <label>Excluded words <span class="optional">(optional)</span></label>
+            <input type="text" class="cat-exclude" placeholder='e.g., TV "horror story"' />
+          </div>
+        </div>`;
+
+      if (list.children.length >= MIN_CATEGORIES) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "small remove-category";
+        remove.textContent = "× Remove";
+        remove.addEventListener("click", () => { row.remove(); renumberCategories(); });
+        row.querySelector(".category-row-head").appendChild(remove);
+      }
+      list.appendChild(row);
+      renumberCategories();
+      return row.querySelector(".cat-name");
+    }
+
+    function renumberCategories() {
+      const rows = [...$("category-list").children];
+      rows.forEach((row, i) => { row.querySelector(".category-row-head label").textContent = `Category ${i + 1}`; });
+      $("add-category").hidden = rows.length >= MAX_CATEGORIES;
+    }
+
+    $("add-category").addEventListener("click", () => addCategoryInput().focus());
+    for (let i = 0; i < MIN_CATEGORIES; i++) addCategoryInput();
+
+    // ---------------------------------------------------------------
+    // Step 1 → 2: fetch news for each category
     // ---------------------------------------------------------------
     $("setup-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const client = $("client").value.trim();
-      const names = [...document.querySelectorAll(".category-input")].map((el) => el.value.trim());
+      const domains = $("priority-sources").value.split(/[\n,]+/).map(cleanDomain).filter(Boolean);
+      const badDomain = domains.find((d) => !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d));
+      const cats = [...document.querySelectorAll(".category-row")].map((row) => ({
+        name: row.querySelector(".cat-name").value.trim(),
+        terms: row.querySelector(".cat-terms").value.trim(),
+        exclude: row.querySelector(".cat-exclude").value.trim()
+      }));
+      const names = cats.map((c) => c.name.toLowerCase());
+
+      let message = "";
+      if (!client) message = "Please enter a client name.";
+      else if (badDomain) message = `"${badDomain}" doesn't look like a domain. Use the form reuters.com, one per line.`;
+      else if (cats.some((c) => !c.name)) message = "Please give every category a name, or remove the extra ones.";
+      else if (new Set(names).size !== names.length) message = "Each category name should be different.";
 
       const error = $("form-error");
-      if (!client || names.some((n) => !n)) {
-        error.textContent = "Please enter a client name and all three categories.";
-        error.hidden = false;
-        return;
-      }
-      error.hidden = true;
+      error.textContent = message;
+      error.hidden = !message;
+      if (message) return;
 
       state.client = client;
-      state.categories = names.map((name) => {
-        const key = CATEGORY_ALIASES[name.toLowerCase()];
-        const articles = key ? SAMPLE_ARTICLES[key] : genericArticles(name);
-        return { name, articles: articles.map((a) => ({ ...a, status: "kept" })) };
-      });
+      state.priority = [...new Set(domains)];
+      state.categories = cats.map((c) => ({ ...c, status: "loading", error: "", showFiltered: false }));
 
+      // A new search replaces fetched articles; manual ones stay.
+      for (const id of Object.keys(state.articles)) {
+        if (!state.articles[id].manual) delete state.articles[id];
+      }
+      state.order = state.order.filter((id) => state.articles[id]);
+
+      $("manual-category").innerHTML = cats.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("");
       renderResults();
       showStep(2);
+      state.categories.forEach(loadCategory);
     });
 
+    async function loadCategory(cat) {
+      const params = new URLSearchParams({
+        terms: cat.terms || cat.name,
+        exclude: cat.exclude,
+        priority: state.priority.join(",")
+      });
+      try {
+        const response = await fetch(`/api/news?${params}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+        data.articles.forEach((a) => {
+          const id = String(nextId++);
+          const reason = filterReason(a);
+          state.articles[id] = { ...a, id, category: cat.name, filterReason: reason, status: reason ? "filtered" : "included" };
+          if (!reason) state.order.push(id);
+        });
+        cat.status = "ok";
+      } catch (err) {
+        cat.status = "error";
+        cat.error = location.protocol === "file:"
+          ? "The local server isn't running (see the note at the top of the page)."
+          : err.message || "Unknown error.";
+      }
+      renderResults();
+    }
+
     // ---------------------------------------------------------------
-    // Step 2: review with keep / remove
+    // Step 2: review — reorder, remove with inline feedback, undo
     // ---------------------------------------------------------------
+    function inCategory(catName) {
+      return Object.values(state.articles).filter((a) => a.category === catName);
+    }
+
+    function orderedIn(catName) {
+      return state.order.map((id) => state.articles[id]).filter((a) => a && a.category === catName);
+    }
+
+    function includedIn(catName) {
+      return orderedIn(catName).filter((a) => a.status === "included");
+    }
+
+    function articleCard(a, position, includedCount) {
+      const tags = [
+        a.priority ? '<span class="tag priority">Priority source</span>' : '<span class="tag other">Other source</span>',
+        a.manual ? '<span class="tag manual">Manual</span>' : "",
+        REPORT_WORDS.test(a.headline) ? '<span class="tag report">Possible report</span>' : "",
+        a.filterReason ? `<span class="tag filter">Filtered: ${escapeHtml(a.filterReason)}</span>` : ""
+      ].join("");
+      const why = a.manual ? "Added manually" : `${a.priority ? "Priority source" : "Other source"} · ${timeAgo(a.date)}`;
+      const dateText = a.date ? ` · ${escapeHtml(formatDate(a.date))}` : "";
+
+      const buttons = a.status === "filtered"
+        ? `<button type="button" class="small btn-add" data-id="${a.id}" data-action="include">Include in newsletter</button>`
+        : `<button type="button" class="small" data-id="${a.id}" data-action="up" ${position === 0 ? "disabled" : ""} title="Move up">↑</button>
+           <button type="button" class="small" data-id="${a.id}" data-action="down" ${position === includedCount - 1 ? "disabled" : ""} title="Move down">↓</button>
+           <button type="button" class="small btn-remove" data-id="${a.id}" data-action="remove">Remove</button>`;
+
+      return `
+        <div class="article ${a.status}">
+          <p>${tags}</p>
+          <p class="headline"><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.headline)}</a></p>
+          <p class="meta">
+            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText} ·
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
+          </p>
+          ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}
+          <div class="article-buttons">${buttons}</div>
+        </div>`;
+    }
+
+    // Shown in the article's spot right after Remove.
+    function feedbackCard(a) {
+      const fb = a.feedback;
+      return `
+        <div class="article feedback-card feedback">
+          <p>Removed: <span class="feedback-headline">${escapeHtml(a.headline)}</span></p>
+          <p>Why remove it? <span class="optional">(optional, helps improve results)</span></p>
+          <div class="chips">
+            ${FEEDBACK_REASONS.map((r) => `<button type="button" class="chip ${fb.reasons.includes(r) ? "on" : ""}" data-id="${a.id}" data-action="reason" data-reason="${r}">${r}</button>`).join("")}
+          </div>
+          <textarea class="field" rows="2" data-id="${a.id}" placeholder="Anything else? (optional)">${escapeHtml(fb.note)}</textarea>
+          ${fb.error ? `<p class="error">${escapeHtml(fb.error)}</p>` : ""}
+          <div class="article-buttons">
+            <button type="button" class="small" data-id="${a.id}" data-action="save-feedback">Submit feedback</button>
+            <button type="button" class="small" data-id="${a.id}" data-action="skip-feedback">Skip</button>
+            <button type="button" class="link" data-id="${a.id}" data-action="undo">Undo</button>
+          </div>
+        </div>`;
+    }
+
+    // Collapsed line once feedback is submitted or skipped.
+    function removedLine(a) {
+      return `
+        <div class="removed-line">
+          <span>Removed${a.feedbackSaved ? " · feedback saved" : ""} — ${escapeHtml(a.headline)}</span>
+          <button type="button" class="link" data-id="${a.id}" data-action="undo">Undo</button>
+        </div>`;
+    }
+
     function renderResults() {
       $("results-title").textContent = `This week's articles for ${state.client}`;
 
-      $("results").innerHTML = state.categories.map((cat, ci) => `
-        <div class="category">
-          <h3>${escapeHtml(cat.name)}</h3>
-          ${cat.articles.map((a, ai) => `
-            <div class="article ${a.status}">
-              <p class="headline">${escapeHtml(a.headline)}</p>
-              <p class="meta">
-                ${escapeHtml(a.source)} ·
-                <a href="${a.url}" target="_blank" rel="noopener">${a.url}</a>
-                ${a.paywalled ? '<span class="paywall">Paywall</span>' : ""}
-              </p>
-              <p class="summary">${escapeHtml(a.summary)}</p>
-              <div class="article-buttons">
-                <button type="button" class="btn-keep ${a.status === "kept" ? "on" : ""}" data-cat="${ci}" data-art="${ai}" data-status="kept">Keep</button>
-                <button type="button" class="btn-remove ${a.status === "removed" ? "on" : ""}" data-cat="${ci}" data-art="${ai}" data-status="removed">Remove</button>
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      `).join("");
+      $("results").innerHTML = state.categories.map((cat, ci) => {
+        const all = inCategory(cat.name);
+        const fetched = all.filter((a) => !a.manual && a.status !== "filtered");
+        const filtered = all.filter((a) => a.status === "filtered");
 
-      const all = state.categories.flatMap((c) => c.articles);
-      const kept = all.filter((a) => a.status === "kept").length;
-      $("tally").textContent = `${kept} of ${all.length} articles kept`;
+        let status = "";
+        if (cat.status === "loading") {
+          status = `<p class="status">Loading news for ${escapeHtml(cat.name)}…</p>`;
+        } else if (cat.status === "error") {
+          status = `<p class="status fail">Couldn't load news for ${escapeHtml(cat.name)}: ${escapeHtml(cat.error)}</p>`;
+        } else {
+          const priorityCount = fetched.filter((a) => a.priority).length;
+          if (fetched.length < 2 || priorityCount === 0) {
+            status = `<p class="status weak">No strong matches — try refining the search terms.
+              <span class="optional">(${fetched.length} unfiltered result${fetched.length === 1 ? "" : "s"}, ${priorityCount} from priority sources)</span></p>`;
+          }
+        }
+
+        // Included and removed articles in newsletter order; removed ones hold their spot.
+        const included = includedIn(cat.name);
+        const cards = orderedIn(cat.name).map((a) => {
+          if (a.status === "included") return articleCard(a, included.indexOf(a), included.length);
+          return a.feedbackOpen ? feedbackCard(a) : removedLine(a);
+        }).join("");
+
+        let filteredHtml = "";
+        if (filtered.length) {
+          filteredHtml = `<button type="button" class="small filtered-toggle" data-cat="${ci}" data-action="toggle-filtered">
+              ${cat.showFiltered ? "Hide" : "Show"} filtered (${filtered.length})</button>`;
+          if (cat.showFiltered) filteredHtml += filtered.map((a) => articleCard(a)).join("");
+        }
+
+        return `<div class="category"><h3>${escapeHtml(cat.name)}</h3>${status}${cards}${filteredHtml}</div>`;
+      }).join("");
+
+      const all = state.categories.flatMap((c) => inCategory(c.name));
+      const count = (s) => all.filter((a) => a.status === s).length;
+      $("tally").textContent = `${count("included")} in newsletter · ${count("removed")} removed · ${count("filtered")} filtered`;
+    }
+
+    // Swap an included article with the nearest included neighbor in the same category.
+    function move(id, direction) {
+      const article = state.articles[id];
+      const sameCat = includedIn(article.category).map((a) => a.id);
+      const neighbor = sameCat[sameCat.indexOf(id) + direction];
+      if (!neighbor) return;
+      const a = state.order.indexOf(id), b = state.order.indexOf(neighbor);
+      [state.order[a], state.order[b]] = [state.order[b], state.order[a]];
+    }
+
+    async function saveFeedback(article) {
+      const fb = article.feedback;
+      try {
+        const response = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client: state.client,
+            category: article.category,
+            headline: article.headline,
+            source: article.source,
+            domain: article.domain,
+            priority_source: article.priority,
+            manual: Boolean(article.manual),
+            filter_reason: article.filterReason || "",
+            url: article.url,
+            reasons: fb.reasons,
+            note: fb.note.trim()
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+        article.feedbackOpen = false;
+        article.feedbackSaved = true;
+        fb.error = "";
+      } catch (err) {
+        fb.error = `Couldn't save feedback: ${err.message}`;
+      }
+      renderResults();
     }
 
     $("results").addEventListener("click", (event) => {
-      const btn = event.target.closest("button[data-status]");
+      const btn = event.target.closest("button[data-action]");
       if (!btn) return;
-      state.categories[btn.dataset.cat].articles[btn.dataset.art].status = btn.dataset.status;
+      const article = state.articles[btn.dataset.id];
+
+      switch (btn.dataset.action) {
+        case "remove":
+          article.status = "removed";
+          article.feedbackOpen = true;
+          article.feedbackSaved = false;
+          article.feedback = { reasons: [], note: "", error: "" };
+          break;
+        case "undo":
+          article.status = "included";
+          article.feedbackOpen = false;
+          break;
+        case "include":
+          article.status = "included";
+          state.order.push(article.id);
+          break;
+        case "toggle-filtered": {
+          const cat = state.categories[btn.dataset.cat];
+          cat.showFiltered = !cat.showFiltered;
+          break;
+        }
+        case "up": move(article.id, -1); break;
+        case "down": move(article.id, 1); break;
+        case "reason": {
+          // Toggle in place so a typed note isn't interrupted by a re-render.
+          const reasons = article.feedback.reasons;
+          const r = btn.dataset.reason;
+          article.feedback.reasons = reasons.includes(r) ? reasons.filter((x) => x !== r) : [...reasons, r];
+          btn.classList.toggle("on");
+          return;
+        }
+        case "save-feedback": saveFeedback(article); return;
+        case "skip-feedback": article.feedbackOpen = false; break;
+      }
+      renderResults();
+    });
+
+    // Remember typed feedback so re-renders don't lose it.
+    $("results").addEventListener("input", (event) => {
+      const id = event.target.dataset.id;
+      if (event.target.tagName === "TEXTAREA" && id) state.articles[id].feedback.note = event.target.value;
+    });
+
+    $("manual-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const url = $("manual-url").value.trim();
+      const headline = $("manual-headline").value.trim();
+
+      let message = "";
+      if (!isWebUrl(url)) message = "Please paste a full article URL starting with http:// or https://.";
+      else if (!headline) message = "Please type a headline.";
+
+      const error = $("manual-error");
+      error.textContent = message;
+      error.hidden = !message;
+      if (message) return;
+
+      const id = String(nextId++);
+      const domain = cleanDomain(new URL(url).hostname);
+      state.articles[id] = {
+        id,
+        headline,
+        url,
+        domain,
+        source: domain,
+        date: "",
+        summary: $("manual-summary").value.trim(),
+        category: $("manual-category").value,
+        priority: isPriority(domain),
+        manual: true,
+        filterReason: "",
+        status: "included"
+      };
+      state.order.push(id);
+      $("manual-url").value = $("manual-headline").value = $("manual-summary").value = "";
       renderResults();
     });
 
     $("back-to-1").addEventListener("click", () => showStep(1));
 
     // ---------------------------------------------------------------
-    // Step 3: build plain-text newsletter
+    // Step 3: build plain-text newsletter from included articles, in order
     // ---------------------------------------------------------------
     function buildDraft() {
       const week = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -377,15 +732,16 @@
       ];
 
       state.categories.forEach((cat) => {
-        const kept = cat.articles.filter((a) => a.status === "kept");
+        const included = includedIn(cat.name);
         lines.push(cat.name.toUpperCase(), "-".repeat(cat.name.length));
-        if (kept.length === 0) {
+        if (included.length === 0) {
           lines.push("No articles selected this week.", "");
           return;
         }
-        kept.forEach((a, i) => {
-          lines.push(`${i + 1}. ${a.headline} (${a.source}${a.paywalled ? ", subscription required" : ""})`);
-          lines.push(`   ${a.summary}`);
+        included.forEach((a, i) => {
+          const date = a.date ? `, ${formatDate(a.date)}` : "";
+          lines.push(`${i + 1}. ${a.headline} (${a.source}${date})`);
+          if (a.summary) lines.push(`   ${a.summary}`);
           lines.push(`   Read more: ${a.url}`);
           lines.push("");
         });
@@ -408,7 +764,7 @@
       try {
         await navigator.clipboard.writeText(draft.value);
       } catch {
-        // Fallback for browsers that block the clipboard API on local files.
+        // Fallback for browsers that block the clipboard API.
         draft.select();
         document.execCommand("copy");
       }

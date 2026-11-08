@@ -42,4 +42,14 @@ git clone https://github.com/building-with-ai-f26/<your-repo-name>.git
 cd <your-repo-name>
 ```
 
+### Run the prototype
+
+The app needs Python 3.9+ (preinstalled on macOS) and nothing else.
+
+```bash
+python3 app/server.py
+```
+
+Then open http://localhost:8000. Press Ctrl+C in the terminal to stop the server. Opening `app/index.html` directly won't load news; the page needs the server to fetch Google News RSS.
+
 If your app needs API keys, use a local environment file such as `.env`. Keep private keys out of source code, browser code, screenshots, and commits. The template ignores `.env`; `.env.example` contains placeholders only.

@@ -5,11 +5,11 @@
 ## 1. Project Overview
 - **What this repo builds:** [1–2 sentence summary]
 - **Primary user & core workflow:** [See the living PRD in `docs/index.html`]
-- **Tech stack:** [e.g., Python 3.12 / FastAPI / Next.js / SQLite / OpenRouter API]
+- **Tech stack:** Plain HTML/CSS/JS page (`app/index.html`) + Python 3.9+ standard-library server (`app/server.py`) that proxies Google News RSS. No API keys.
 
 ## 2. Commands
-- **Install dependencies:** `[e.g., npm install / uv sync]`
-- **Run locally:** `[e.g., npm run dev]`
+- **Install dependencies:** None (Python standard library only).
+- **Run locally:** `python3 app/server.py` from the repo root, then open http://localhost:8000 (Ctrl+C to stop).
 - **Run deterministic tests:** `[e.g., pytest / npm test]`
 - **Run model evals:** `[e.g., python tests/eval.py]`
 
