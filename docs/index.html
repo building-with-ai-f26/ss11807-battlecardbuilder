@@ -137,6 +137,21 @@
       font-size: 13px;
       color: var(--muted);
     }
+    .shot {
+      margin: 20px 0 0;
+    }
+    .shot img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .shot figcaption {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -157,12 +172,37 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> [Build 1: local prototype / Builds 2–4: local app / Build 5: cloud app]<br />
+        <strong>Current Status:</strong> Build 1: local prototype<br />
         <strong>Demo:</strong> [Add a screenshot or GIF now; add the live cloud app URL in Build 5.]
       </p>
       <p class="meta">
         Ask your coding agent to embed a screenshot or GIF of your local prototype for Build 1. Keep this evidence current, then add your cloud app link and two-minute video in Build 5.
       </p>
+
+      <figure class="shot">
+        <img src="prototype-1/01-start-of-step-2.png" alt="Step 2 of the app, showing the form to add an article manually" />
+        <figcaption>Step 2 opens with a form for adding paywalled or hand-picked articles manually.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/02-reviewing-articles.png" alt="FX articles from Google News, each tagged as a priority source, with reorder and remove buttons" />
+        <figcaption>Real Google News results for FX, with priority sources first and the newest on top. Each article can be reordered or removed.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/03-feedback-box.png" alt="Feedback box with quick-pick reasons shown in place of a removed article" />
+        <figcaption>Removing an article opens a quick feedback box where its card was. Feedback is saved for reviewing search quality later.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/04-rejecting-bad-article.png" alt="An off-topic Bloomberg result titled Economics, struck through after removal" />
+        <figcaption>Earlier version: off-topic results, like a bare "Economics" page from a priority source, get removed with a saved reason.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/05-filtered-podcast.png" alt="A Financial Times transcript tagged Filtered: podcast" />
+        <figcaption>Podcast transcripts and opinion pieces are hidden by default, and can still be shown and included.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/06-newsletter-draft.png" alt="Editable newsletter draft with linked headlines and copy buttons" />
+        <figcaption>The finished draft is an editable email with linked headlines, ready to copy into Gmail or Outlook.</figcaption>
+      </figure>
     </section>
 
     <!-- LIVING PRD (Updated every week!) -->
