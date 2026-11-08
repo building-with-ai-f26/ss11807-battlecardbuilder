@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>[Your Product Name] · Building with AI (Fall 2026)</title>
+  <title>Press Pass · Building with AI (Fall 2026)</title>
 
   <!-- Week 1: create your PostHog account only.
        Build 2: paste your project's current PostHog web snippet here,
@@ -159,8 +159,8 @@
     <!-- HERO / PRODUCT PITCH -->
     <header>
       <span class="eyebrow">NYU Stern · Building with AI · Fall 2026</span>
-      <h1>[Your Product Name]</h1>
-      <p class="tagline">[One clear sentence: Who is this for, and what painful job does it do for them?]</p>
+      <h1>Press Pass</h1>
+      <p class="tagline">A newsletter creator for PR agencies</p>
       <div class="cta-row">
         <a class="btn" href="#live-demo" onclick="window.posthog && posthog.capture('clicked_try_product')">See the Product →</a>
         <a class="btn btn-secondary" href="#prd">Read the Living PRD</a>
@@ -180,28 +180,36 @@
       </p>
 
       <figure class="shot">
-        <img src="prototype-1/01-start-of-step-2.png" alt="Step 2 of the app, showing the form to add an article manually" />
+        <img src="prototype-1/01-starting-page.png" alt="Step 1 of the app: client name, priority source list and three news categories" />
+        <figcaption>Step 1: enter the client, an editable list of priority sources, and news categories with optional search terms and excluded words.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/02-start-of-step-2.png" alt="Step 2 of the app, showing the form to add an article manually" />
         <figcaption>Step 2 opens with a form for adding paywalled or hand-picked articles manually.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="prototype-1/02-reviewing-articles.png" alt="FX articles from Google News, each tagged as a priority source, with reorder and remove buttons" />
+        <img src="prototype-1/03-reviewing-articles.png" alt="FX articles from Google News, each tagged as a priority source, with reorder and remove buttons" />
         <figcaption>Real Google News results for FX, with priority sources first and the newest on top. Each article can be reordered or removed.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="prototype-1/03-feedback-box.png" alt="Feedback box with quick-pick reasons shown in place of a removed article" />
+        <img src="prototype-1/04-feedback-box.png" alt="Feedback box with quick-pick reasons shown in place of a removed article" />
         <figcaption>Removing an article opens a quick feedback box where its card was. Feedback is saved for reviewing search quality later.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="prototype-1/04-rejecting-bad-article.png" alt="An off-topic Bloomberg result titled Economics, struck through after removal" />
+        <img src="prototype-1/05-rejecting-bad-article.png" alt="An off-topic Bloomberg result titled Economics, struck through after removal" />
         <figcaption>Earlier version: off-topic results, like a bare "Economics" page from a priority source, get removed with a saved reason.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="prototype-1/05-filtered-podcast.png" alt="A Financial Times transcript tagged Filtered: podcast" />
+        <img src="prototype-1/06-filtered-podcast.png" alt="A Financial Times transcript tagged Filtered: podcast" />
         <figcaption>Podcast transcripts and opinion pieces are hidden by default, and can still be shown and included.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="prototype-1/06-newsletter-draft.png" alt="Editable newsletter draft with linked headlines and copy buttons" />
-        <figcaption>The finished draft is an editable email with linked headlines, ready to copy into Gmail or Outlook.</figcaption>
+        <img src="prototype-1/07-newsletter-draft.png" alt="Top of the newsletter draft with client name, date, intro and the FX section" />
+        <figcaption>Step 3: the draft opens as an email with the client name, date, a short intro and a heading per category.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-1/08-copying-newsletter-draft.png" alt="Editable newsletter draft with linked headlines and copy buttons" />
+        <figcaption>Every part of the draft is editable, with linked headlines, and it copies cleanly into Gmail or Outlook.</figcaption>
       </figure>
     </section>
 
@@ -231,7 +239,7 @@
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
-          <div class="stat-value">[Record actual spend]</div>
+          <div class="stat-value">$0.00</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
@@ -256,10 +264,10 @@
       <div class="log-entry">
         <h3>Build 1 · Intent.md & Throwaway Prototype (Due Nov 9)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [What you actually built; link your local prototype screenshot or GIF above.]</li>
-          <li><strong>Things learned with AI:</strong> [What you learned from AI practice and Terminus Episodes 1 and 2.]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> A local prototype of a newsletter creator.</li>
+          <li><strong>Things learned with AI:</strong> From Terminus 1 and 2, I learned how to access different folders/directories. I also understood the diff between Github and Git</li>
+          <li><strong>What broke / changed in PRD:</strong> There are no summaries since Google News RSS returns only the headline, source, date, and link. Nonsense categories e.g. "sadf" came back with two articles, so the app didn't have a sense of relevance. Wrong content types like op-eds and podcast transcripts got through. I added clearer category descriptions, so certain terms can be excluded from the newsletter.</li>
+          <li><strong>Cost & time this week:</strong> $0.00 · 4 hours</li>
         </ul>
       </div>
 
