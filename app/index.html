@@ -153,13 +153,19 @@
     @media (max-width: 560px) { .manual-grid { grid-template-columns: 1fr; } }
     .manual summary { cursor: pointer; font-weight: 700; font-size: 16px; margin-bottom: 12px; }
 
-    textarea#draft {
-      width: 100%; min-height: 460px; padding: 14px; font-size: 13px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      border: 1px solid var(--border); border-radius: 8px; resize: vertical;
-      margin-bottom: 16px;
+    /* Editable email draft. Email styling itself is inline (see EMAIL_STYLES) so it survives pasting. */
+    #draft {
+      border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px;
+      min-height: 400px; margin-bottom: 16px; background: #fff;
     }
+    #draft:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #draft .dg-item { position: relative; padding-right: 100px; border-radius: 6px; }
+    #draft .dg-item:hover { background: #f9fafb; }
+    #draft .dg-controls { position: absolute; top: 2px; right: 4px; display: flex; gap: 4px; user-select: none; }
+    #draft .dg-controls button { padding: 2px 8px; font-size: 12px; }
+    #draft .dg-summary:empty::before { content: attr(data-placeholder); color: #9ca3af; font-style: italic; }
     .copied { color: var(--keep); font-size: 14px; font-weight: 600; }
+    .copy-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -253,12 +259,18 @@ americanbanker.com</textarea>
     <!-- STEP 3: newsletter text -->
     <section class="card" id="step-3" hidden>
       <h2>Newsletter draft</h2>
-      <p class="sub" style="margin-bottom:12px">Copy this into your email. Review before sending to the client.</p>
-      <textarea id="draft" readonly></textarea>
+      <p class="sub" style="margin-bottom:12px">
+        Click anywhere to edit the text. Hover an article to move (↑ ↓) or delete (✕) it.
+        Review before sending to the client.
+      </p>
+      <div id="draft" contenteditable="true" spellcheck="true"></div>
       <div class="actions">
         <button type="button" id="back-to-2">← Back to review</button>
-        <span class="copied" id="copied" hidden>Copied!</span>
-        <button type="button" class="primary" id="copy">Copy to clipboard</button>
+        <div class="copy-buttons">
+          <span class="copied" id="copied" hidden></span>
+          <button type="button" id="copy-text">Copy plain text</button>
+          <button type="button" class="primary" id="copy-email">Copy for email</button>
+        </div>
       </div>
     </section>
   </div>
@@ -719,56 +731,159 @@ americanbanker.com</textarea>
     $("back-to-1").addEventListener("click", () => showStep(1));
 
     // ---------------------------------------------------------------
-    // Step 3: build plain-text newsletter from included articles, in order
+    // Step 3: editable email draft from included articles, in order
+    // Styles are inline because Gmail and Outlook drop <style> tags on paste.
     // ---------------------------------------------------------------
-    function buildDraft() {
-      const week = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-      const lines = [
-        `${state.client} · Weekly News Digest`,
-        `Week of ${week}`,
-        "",
-        `Hi team, here are this week's top stories across ${state.categories.map((c) => c.name).join(", ")}.`,
-        ""
-      ];
+    const EMAIL_STYLES = {
+      wrap: "font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 15px; line-height: 1.5;",
+      title: "font-size: 22px; font-weight: bold; margin: 0 0 4px;",
+      date: "font-size: 14px; color: #6b7280; margin: 0 0 18px;",
+      intro: "margin: 0 0 22px;",
+      heading: "font-size: 17px; font-weight: bold; color: #1d63dc; margin: 24px 0 10px; padding-bottom: 4px; border-bottom: 2px solid #e5e7eb;",
+      headline: "margin: 0 0 2px; font-weight: bold;",
+      link: "color: #111827; text-decoration: underline;",
+      source: "font-size: 13px; color: #6b7280; margin: 0 0 4px;",
+      summary: "margin: 0 0 16px;",
+      empty: "color: #6b7280; font-style: italic; margin: 0 0 16px;",
+      signoff: "margin: 28px 0 0;"
+    };
 
-      state.categories.forEach((cat) => {
-        const included = includedIn(cat.name);
-        lines.push(cat.name.toUpperCase(), "-".repeat(cat.name.length));
-        if (included.length === 0) {
-          lines.push("No articles selected this week.", "");
-          return;
-        }
-        included.forEach((a, i) => {
-          const date = a.date ? `, ${formatDate(a.date)}` : "";
-          lines.push(`${i + 1}. ${a.headline} (${a.source}${date})`);
-          if (a.summary) lines.push(`   ${a.summary}`);
-          lines.push(`   Read more: ${a.url}`);
-          lines.push("");
-        });
-      });
+    let draftEdited = false;
 
-      lines.push("Best,", "[Your name]");
-      return lines.join("\n");
+    function buildDraftHtml() {
+      const s = EMAIL_STYLES;
+      const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      const sections = state.categories.map((cat) => {
+        const items = includedIn(cat.name).map((a) => `
+          <div class="dg-item">
+            <div class="dg-controls" contenteditable="false">
+              <button type="button" class="small" data-draft="up" title="Move up">↑</button>
+              <button type="button" class="small" data-draft="down" title="Move down">↓</button>
+              <button type="button" class="small" data-draft="delete" title="Delete">✕</button>
+            </div>
+            <p style="${s.headline}"><a href="${escapeHtml(a.url)}" style="${s.link}">${escapeHtml(a.headline)}</a></p>
+            <p class="dg-source" style="${s.source}">${escapeHtml(a.source)}${a.date ? " · " + escapeHtml(formatDate(a.date)) : ""}</p>
+            <p class="dg-summary" style="${s.summary}" data-placeholder="Add a summary (optional)">${escapeHtml(a.summary || "")}</p>
+          </div>`).join("");
+        return `
+          <div class="dg-section">
+            <h2 style="${s.heading}">${escapeHtml(cat.name)}</h2>
+            ${items || `<p style="${s.empty}">No articles selected this week.</p>`}
+          </div>`;
+      }).join("");
+
+      return `
+        <div style="${s.wrap}">
+          <h1 style="${s.title}">${escapeHtml(state.client)} · Weekly News Digest</h1>
+          <p style="${s.date}">${escapeHtml(today)}</p>
+          <p style="${s.intro}">Hi team, here are this week's top stories across ${escapeHtml(state.categories.map((c) => c.name).join(", "))}.</p>
+          ${sections}
+          <p style="${s.signoff}">Best,<br>[Your name]</p>
+        </div>`;
     }
 
     $("export").addEventListener("click", () => {
-      $("draft").value = buildDraft();
+      // Keep the user's edits unless they agree to rebuild from the review step.
+      if (!draftEdited || confirm("Rebuild the draft from your review? Your edits to the draft will be lost.")) {
+        $("draft").innerHTML = buildDraftHtml();
+        draftEdited = false;
+      }
       $("copied").hidden = true;
       showStep(3);
     });
 
     $("back-to-2").addEventListener("click", () => showStep(2));
 
-    $("copy").addEventListener("click", async () => {
-      const draft = $("draft");
-      try {
-        await navigator.clipboard.writeText(draft.value);
-      } catch {
-        // Fallback for browsers that block the clipboard API.
-        draft.select();
-        document.execCommand("copy");
-      }
+    $("draft").addEventListener("input", () => { draftEdited = true; });
+
+    // Move / delete article blocks in the draft.
+    $("draft").addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-draft]");
+      if (!btn) return;
+      event.preventDefault();
+      const item = btn.closest(".dg-item");
+      const action = btn.dataset.draft;
+      if (action === "delete") item.remove();
+      else if (action === "up" && item.previousElementSibling?.classList.contains("dg-item")) item.previousElementSibling.before(item);
+      else if (action === "down" && item.nextElementSibling?.classList.contains("dg-item")) item.nextElementSibling.after(item);
+      draftEdited = true;
+    });
+
+    // A copy of the draft without editing controls or empty summary lines.
+    function cleanDraft() {
+      const clone = $("draft").cloneNode(true);
+      clone.querySelectorAll(".dg-controls").forEach((el) => el.remove());
+      clone.querySelectorAll(".dg-summary").forEach((el) => { if (!el.textContent.trim()) el.remove(); });
+      clone.querySelectorAll("[contenteditable], [data-placeholder]").forEach((el) => {
+        el.removeAttribute("contenteditable");
+        el.removeAttribute("data-placeholder");
+      });
+      clone.removeAttribute("id");
+      clone.removeAttribute("contenteditable");
+      return clone;
+    }
+
+    // innerText only adds line breaks for rendered elements, so render off-screen briefly.
+    function withOffscreen(node, fn) {
+      const holder = document.createElement("div");
+      holder.style.cssText = "position: fixed; left: -10000px; top: 0; width: 700px;";
+      holder.appendChild(node);
+      document.body.appendChild(holder);
+      try { return fn(holder); } finally { holder.remove(); }
+    }
+
+    // Plain text has no hyperlinks, so each link's URL goes on the line under its headline.
+    // Each article becomes one compact block: headline, URL, source, summary.
+    function draftPlainText() {
+      const clone = cleanDraft();
+      clone.querySelectorAll("a[href]").forEach((a) => a.after("\n" + a.href));
+      clone.querySelectorAll(".dg-item").forEach((item) => {
+        const block = document.createElement("p");
+        block.style.whiteSpace = "pre-line";
+        block.textContent = [...item.children].map((el) => el.textContent.trim()).filter(Boolean).join("\n");
+        item.replaceWith(block);
+      });
+      return withOffscreen(clone, (holder) => holder.innerText).replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    function flashCopied(message) {
+      $("copied").textContent = message;
       $("copied").hidden = false;
+    }
+
+    $("copy-email").addEventListener("click", async () => {
+      const html = cleanDraft().innerHTML;
+      const text = draftPlainText();
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" })
+        })]);
+      } catch {
+        // Fallback: select a rendered copy and use the browser's own rich-text copy.
+        withOffscreen(cleanDraft(), (holder) => {
+          const range = document.createRange();
+          range.selectNodeContents(holder);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          document.execCommand("copy");
+          selection.removeAllRanges();
+        });
+      }
+      flashCopied("Copied! Paste into Gmail or Outlook.");
+    });
+
+    $("copy-text").addEventListener("click", async () => {
+      const text = draftPlainText();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        withOffscreen(area, () => { area.select(); document.execCommand("copy"); });
+      }
+      flashCopied("Plain text copied.");
     });
 
     showStep(1);
