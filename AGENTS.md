@@ -14,6 +14,8 @@ app/
   server.py         Local server. GET /api/news searches all sources, drops articles older
                     than 7 days, removes duplicates, then asks Claude to score and summarize.
                     POST /api/feedback saves removal notes.
+                    POST /api/pdf sends an uploaded PDF of a paywalled article to Claude
+                    and returns its headline, source and summary (the PDF is not saved).
   feeds.json        Publisher RSS feeds checked on every search (edit freely).
   data/             Local feedback notes (git-ignored).
 docs/
@@ -21,7 +23,8 @@ docs/
   prototype-1/, prototype-2/   Screenshots for the Product Page.
 tests/
   test_sources.py   Offline tests: feed parsing, search-term matching, 7-day cutoff,
-                    duplicate removal, Claude step (with a fake response), fallbacks.
+                    duplicate removal, Claude step and PDF reading (with fake
+                    responses), fallbacks.
 .env.example        Names of the API keys the app reads. Copy to .env; never commit .env.
 ```
 
@@ -34,7 +37,7 @@ tests/
 - **Run locally:** `python3 app/server.py` from the repo root, then open http://localhost:8000 (Ctrl+C to stop). The first lines printed say whether GNews and Claude scoring are on.
 - **Run deterministic tests:** `python3 -m unittest discover tests` (no internet or keys needed; costs nothing).
 - **Run model evals:** Not built yet (planned for Build 4).
-- **Cost:** about $0.0008 of Claude usage per category searched (20 articles scored), shown on the page under each category.
+- **Cost:** about $0.001–$0.0024 of Claude usage per category searched (20 articles scored with the four-part rubric), about $0.003–$0.007 per 3-category newsletter. Shown on the page under each category.
 
 ## 4. Non-Negotiable Engineering Rules
 1. **Plan before coding:** Before touching multiple files, propose a brief plan and wait for approval.

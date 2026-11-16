@@ -227,6 +227,44 @@ class ClaudeStepTests(unittest.TestCase):
         self.assertIsInstance(top[0]["date"], str)  # dates are turned into text for the web page
 
 
+class PdfTests(unittest.TestCase):
+    """PDF upload: Claude is replaced by a fake that records what it was sent."""
+
+    def test_rejects_bad_uploads(self):
+        with self.assertRaises(ValueError):
+            server.check_pdf(b"")
+        with self.assertRaises(ValueError):
+            server.check_pdf(b"<html>not a pdf</html>")
+        with self.assertRaises(ValueError):
+            server.check_pdf(b"%PDF" + b"0" * (server.MAX_PDF_BYTES + 1))
+        server.check_pdf(b"%PDF-1.4 small file")  # a real PDF header passes
+
+    def test_sends_pdf_and_returns_fields(self):
+        import json
+        sent = {}
+
+        def fake_claude(content, **options):
+            sent["content"], sent["options"] = content, options
+            answer = {"headline": " Visa buys a fraud startup ", "source": "WSJ",
+                      "summary": "Visa agreed to buy FraudCo for $1 billion."}
+            return {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(answer)}],
+                    "usage": {"input_tokens": 4000, "output_tokens": 200}}
+
+        original = server.call_claude
+        server.call_claude = fake_claude
+        try:
+            result = server.summarize_pdf(b"%PDF-1.4 fake article")
+        finally:
+            server.call_claude = original
+        self.assertEqual(result["headline"], "Visa buys a fraud startup")
+        self.assertEqual(result["source"], "WSJ")
+        self.assertAlmostEqual(result["cost_usd"], 0.0005)  # 4000 x $0.10/M + 200 x $0.50/M
+        document = sent["content"][0]
+        self.assertEqual(document["type"], "document")
+        self.assertEqual(document["source"]["media_type"], "application/pdf")
+        self.assertIs(sent["options"]["schema"], server.PDF_SCHEMA)
+
+
 class GnewsTests(unittest.TestCase):
     def test_off_without_key(self):
         saved = os.environ.pop("GNEWS_API_KEY", None)

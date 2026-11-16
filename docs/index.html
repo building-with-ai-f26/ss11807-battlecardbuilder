@@ -244,22 +244,22 @@
       <h3>1. Target User & The Job to Be Done</h3>
       <p><strong>Who is this for?</strong> Comms firms that do news roundups for clients across multiple domains. E.g., when I worked at a PR agency, we would do a weekly newsletter for a B2B payments company, focused on news across FX, macroeconomics, fraud, etc..</p>
       <p><strong>The painful "Before" workflow:</strong> We manually search the web for the most relevant news in those categories from that week. We have access to subscriptions, but the company does not so if there's a paywall, they won't be able to read it.</p>
-      <p><strong>The "After" workflow with this product:</strong> The tool scours the web for the relevant articles that week per category. It hyperlinks the direct link to the site and gives a 3 sentence summary of the article. For articles that require a subscription, a browser “add to newsletter” button lets the user capture articles they’re already logged in to read. The tool summarizes and links them without having to store login credentials.</p>
+      <p><strong>The "After" workflow with this product:</strong> The tool scours the web for the relevant articles that week per category. It hyperlinks the direct link to the site and gives a 3 sentence summary of the article. For articles that require a subscription, users can upload a PDF of the article and the tool will include it in the newsletter and summarize it for them. The tool summarizes and links them without having to store login credentials.</p>
 
       <h3>2. Scope & Explicit Non-Goals</h3>
       <ul>
         <li><strong>In Scope (Core Workflow):</strong> Automates newsletter creation based on industry categories and solves the paywall issue. It finds candidate articles per category from news feeds and search, then ranks them by relevance. It drafts a 3-sentence summary of each article. User reviews and edits the picks then is able to email the newsletter directly to client.</li>
         <li><strong>Out of Scope #1:</strong> Sending newsletters to clients automatically. The tool only produces a draft newsletter that a human approves and sends through the agency's email.</li>
         <li><strong>Out of Scope #2:</strong> Storing and using an agency's paid subscription credentials. The tool will use RSS feeds, news search APIs, and publicly available sites first.</li>
-        <li><strong>Out of Scope #3:</strong> Attaching full article PDFs from paywalled sites.</li>
+        <li><strong>Out of Scope #3:</strong> Storing or redistributing full paywalled articles; PDFs are used only to write the summary.</li>
       </ul>
 
       <h3>3. How It Works Under the Hood & Riskiest Assumption (PRD v2 · Build 2)</h3>
-      <p><strong>Riskiest Assumption:</strong> AI can pick the same articles a PR professional would pick for a client's category, and can summarize them accurately from only the headline and a short description, without reading paywalled full text. If either part fails, the user has to redo the search and rewrite every summary, and the tool saves no time.</p>
-      <p><strong>How Build 2 tests it:</strong> One full user action now runs on real data with a real AI call. For each category, Claude (Haiku 5.5) scores 20 real candidate articles from 0 to 10 and summarizes the top 5.</p>
+      <p><strong>Riskiest Assumption:</strong> AI can pick the same articles a PR professional would pick for a client's category, and can summarize them accurately from only the headline and a short description, without reading paywalled full text. If either part fails, the user has to redo the search and rewrite every summary manually.</p>
+      <p><strong>How Build 2 tests it:</strong> One full user action now runs on data with an AI call. For each category, Claude (Haiku 5.5) scores 20 candidate articles from 0 to 10 and summarizes the top 5.</p>
       <ul>
-        <li><strong>Picking:</strong> Before AI scoring, ranking was "priority source first, then newest." For "payments fraud" that surfaced an advice column about a cheating fiancé and a story on Venezuelan debt. With Claude scoring, the same search returned fake-bank-account scams, card fraud results and a central bank fraud-reporting rule.</li>
-        <li><strong>Summarizing:</strong> The first summaries padded thin sources with filler ("It is a daily currency market update"). I tightened the instructions and re-ran them on the same 20 FX articles: the filler sentences disappeared, and the scores spread out instead of clustering at 8/10.</li>
+        <li><strong>Picking:</strong> Before AI scoring, ranking was "priority source first, then newest." With Claude scoring, the same search returned fake-bank-account scams, card fraud results and a central bank fraud-reporting rule. Scoring is based on criteria including topic fit, client impact, newsworthiness, and source &amp; format.</li>
+        <li><strong>Summarizing:</strong> The first summaries were filler ("It is a daily currency market update"). I tightened the instructions, although the summaries are still pretty thin because it only has access to the headline and subheadline. Need to figure out a way to get more of the article body.</li>
         <li><strong>Freshness:</strong> Google News occasionally returned old stories (one from 2015), so every source now has a hard 7-day cutoff.</li>
         <li><strong>Still unproven:</strong> whether a PR professional agrees with Claude's picks. Every removal is saved with Claude's score, which sets up the Build 4 evaluation.</li>
       </ul>
@@ -269,7 +269,7 @@
         <li>For each category, the local Python server searches four sources at once: Google News for the priority sources, Google News across all outlets, 10 publisher RSS feeds (Bloomberg, NYT, FT, WSJ, TIME), and the GNews API. Reuters and Barron's have no public feeds, so they are searched through Google News.</li>
         <li>Articles older than 7 days or without a date are dropped, and the same story from two sources is merged.</li>
         <li>The best 20 candidates go to Claude in one request. It returns a relevance score and a summary for each as structured JSON. The top 5 are shown; anything under 5/10 goes to a "filtered" pile that the user can still open.</li>
-        <li>The user reorders or removes articles (with a reason) and adds paywalled ones by hand, then copies an email-ready draft.</li>
+        <li>The user reorders or removes articles (with a reason) and adds paywalled ones by uploading a PDF of the article: Claude reads it and fills in the headline, source and a summary for the user to check (about $0.0004 per article; the PDF is not saved). Then the user copies an email-ready draft.</li>
         <li>If Claude is unavailable, the app falls back to ranking by source and date, so the workflow never breaks.</li>
       </ol>
       <p><strong>Simple Architecture:</strong> Client categories, keywords, priority sources → server pulls this week's articles from Google News, publisher RSS feeds and GNews → 7-day cutoff and de-duplication → Claude Haiku 5.5 scores relevance and writes summaries → user reviews and edits → user copies the newsletter draft and sends it to the client. PostHog records page views, clicks and session replays on the app and this page.</p>
@@ -283,8 +283,8 @@
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
-          <div class="stat-value">≈ $0.003</div>
-          <p class="meta">Measured: about $0.0008–$0.0009 of Claude usage per category (about 2,000 input and 1,300 output tokens at $0.10 / $0.50 per million), so a 3-category newsletter costs about $0.003. The GNews free tier allows 100 searches a day, or about 33 newsletters.</p>
+          <div class="stat-value">≈ $0.003–$0.007</div>
+          <p class="meta">Measured with the four-part rubric: about $0.001–$0.0024 of Claude usage per category (about 2,400–2,700 input and 1,800–4,200 output tokens at $0.10 / $0.50 per million), so a 3-category newsletter costs about $0.003–$0.007. The GNews free tier allows 100 searches a day, or about 33 newsletters.</p>
         </div>
         <div class="stat-box">
           <div class="stat-label">User Evidence (Analytics from Build 2)</div>
@@ -316,10 +316,10 @@
       <div class="log-entry">
         <h3>Build 2 · Smallest Local Version & PostHog (Due Nov 16)</h3>
         <ul>
-          <li><strong>What shipped:</strong> A working local slice with a real AI call. Each category now searches Google News, 10 publisher RSS feeds and the GNews API; drops anything older than 7 days; and has Claude Haiku 5.5 score 20 candidates for relevance and summarize the top 5. PostHog is installed on this page and in the local app, with events for each workflow step (search, remove, include, open draft, copy). Also: PRD v2, setup and project structure in AGENTS.md, and offline tests (<code>python3 -m unittest discover tests</code>).</li>
-          <li><strong>What broke / changed in PRD:</strong> Google News alone ranked by source and date, so "payments fraud" returned an advice column and a Venezuelan debt story; AI scoring fixed that. Google's "past week" filter still let a 2015 article through, so I added a hard 7-day cutoff. Reuters and Barron's have no public RSS feeds, so they are searched through Google News. Claude's first summaries padded thin sources with filler, and every article scored 8/10; tighter instructions fixed both on the same 20 articles. The riskiest assumption is now split into picking and summarizing, and summaries are limited to the headline and description, which is noted on the page.</li>
-          <li><strong>Things learned with AI:</strong> [Your lessons this week]</li>
-          <li><strong>Cost & time this week:</strong> &lt; $0.05 in Claude API usage (about $0.003 per 3-category newsletter) · [X] hours</li>
+          <li><strong>What shipped:</strong> A working local slice with an AI call. Each category now searches Google News, 10 publisher RSS feeds and the GNews API; drops anything older than 7 days; and has Claude Haiku 5.5 score 20 candidates for relevance and summarize the top 5. PostHog is installed on this page and in the local app. Paywalled articles can be added by uploading a PDF; Claude reads the full article and fills in the headline, source and summary (about $0.0004 per article).</li>
+          <li><strong>What broke / changed in PRD:</strong> There's now AI scoring, where before it was just prioritized by source and date— this needs a lot of fine tuning, though. Google's "past week" filter still let a 2015 article through, so I added a hard 7-day cutoff. Reuters and Barron's have no public RSS feeds, so they are searched through Google News. Claude's first summaries padded thin sources with filler, and every article scored 8/10. The riskiest assumption is now split into ranking and summarizing, and summaries are limited to the headline and description, which is noted on the page.</li>
+          <li><strong>Things learned with AI:</strong> What .env is, how to store API keys safely, relationship of browser and server, token costs</li>
+          <li><strong>Cost & time this week:</strong> &lt; $0.05 in Claude API usage (about $0.003–$0.007 per 3-category newsletter) · 4 hours</li>
         </ul>
       </div>
 

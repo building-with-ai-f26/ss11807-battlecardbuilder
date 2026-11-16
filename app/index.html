@@ -139,6 +139,8 @@
     }
     .tag.priority { color: #065f46; background: #d1fae5; }
     .tag.score { color: #5b21b6; background: #ede9fe; }
+    .pdf-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .pdf-status { font-size: 13px; color: var(--muted); }
     .ai-disclaimer { font-size: 13px; color: var(--muted); background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
     .status.ai { color: #5b21b6; }
     .tag.other { color: #374151; background: #f3f4f6; }
@@ -254,6 +256,13 @@ americanbanker.com</textarea>
         <summary>Add an article manually</summary>
         <form id="manual-form">
           <p class="hint" style="margin-top:-6px">For paywalled or hand-picked stories the search missed. Manual articles are included in the newsletter and never filtered.</p>
+          <label for="manual-pdf">PDF of the article <span class="optional">(optional, for paywalled articles)</span></label>
+          <p class="hint">Save the article as a PDF from your browser (File → Print → Save as PDF), then click Read PDF. AI fills in the headline, source and summary for you to check. The PDF is not saved.</p>
+          <div class="pdf-row">
+            <input type="file" id="manual-pdf" accept="application/pdf,.pdf" />
+            <button type="button" id="read-pdf">Read PDF</button>
+            <span class="pdf-status" id="pdf-status"></span>
+          </div>
           <div class="manual-grid">
             <div>
               <label for="manual-url">Article URL</label>
@@ -264,6 +273,8 @@ americanbanker.com</textarea>
               <select id="manual-category"></select>
             </div>
           </div>
+          <label for="manual-source">Source <span class="optional">(optional; defaults to the website)</span></label>
+          <input type="text" id="manual-source" placeholder="e.g., The Wall Street Journal" />
           <label for="manual-headline">Headline</label>
           <input type="text" id="manual-headline" />
           <label for="manual-summary">Summary <span class="optional">(optional)</span></label>
@@ -767,7 +778,7 @@ americanbanker.com</textarea>
         headline,
         url,
         domain,
-        source: domain,
+        source: $("manual-source").value.trim() || domain,
         date: "",
         summary: $("manual-summary").value.trim(),
         category: $("manual-category").value,
@@ -777,9 +788,45 @@ americanbanker.com</textarea>
         status: "included"
       };
       state.order.push(id);
-      track("article_added_manually");
-      $("manual-url").value = $("manual-headline").value = $("manual-summary").value = "";
+      track("article_added_manually", { from_pdf: pdfUsed });
+      $("manual-url").value = $("manual-headline").value = $("manual-summary").value = $("manual-source").value = "";
+      $("manual-pdf").value = "";
+      $("pdf-status").textContent = "";
+      pdfUsed = false;
       renderResults();
+    });
+
+    // Read PDF: send the file to the local server, which asks Claude for the
+    // headline, source and summary. The fields stay editable before adding.
+    let pdfUsed = false;
+    $("read-pdf").addEventListener("click", async () => {
+      const file = $("manual-pdf").files[0];
+      const status = $("pdf-status");
+      if (!file) { status.textContent = "Choose a PDF first."; return; }
+      if (file.size > 10 * 1024 * 1024) { status.textContent = "That PDF is over 10 MB."; return; }
+      const button = $("read-pdf");
+      button.disabled = true;
+      status.textContent = "Reading the PDF… (about 10–20 seconds)";
+      try {
+        const response = await fetch("/api/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf" },
+          body: file
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+        $("manual-headline").value = data.headline;
+        if (data.source) $("manual-source").value = data.source;
+        $("manual-summary").value = data.summary;
+        pdfUsed = true;
+        status.textContent = `Done · $${data.cost_usd.toFixed(4)}. Check the fields, add the article URL, then click Add article.`;
+        track("pdf_read", { ok: true, cost_usd: data.cost_usd, size_kb: Math.round(file.size / 1024) });
+      } catch (err) {
+        status.textContent = `Couldn't read the PDF: ${err.message}`;
+        track("pdf_read", { ok: false });
+      } finally {
+        button.disabled = false;
+      }
     });
 
     $("back-to-1").addEventListener("click", () => showStep(1));
