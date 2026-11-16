@@ -196,17 +196,20 @@
 
         <label for="priority-sources">Priority sources</label>
         <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
-        <textarea class="field" id="priority-sources" rows="7">reuters.com
+        <textarea class="field" id="priority-sources" rows="10">reuters.com
 bloomberg.com
 ft.com
 wsj.com
+nytimes.com
+barrons.com
+time.com
 cnbc.com
 paymentsdive.com
 americanbanker.com</textarea>
 
         <label>News categories</label>
         <p class="hint">
-          The name is what appears in the newsletter. Search terms are sent to Google News as typed, so
+          The name is what appears in the newsletter. Search terms are sent to Google News, GNews and publisher feeds as typed, so
           "quotes", OR and -minus work (blank = use the name). Excluded words drop matching articles.
         </p>
         <div id="category-list"></div>
@@ -525,7 +528,7 @@ americanbanker.com</textarea>
           <p>${tags}</p>
           <p class="headline"><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.headline)}</a></p>
           <p class="meta">
-            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText} ·
+            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText}${a.via ? ` · via ${escapeHtml(a.via)}` : ""} ·
             <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
           </p>
           ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}

@@ -1,0 +1,15 @@
+{
+  "_about": "Publisher RSS feeds the app checks on every search, alongside Google News and GNews. Only articles from the last 7 days whose headline or description matches a category's search terms are used. Add or remove feeds freely (RSS 2.0 only). Reuters and Barron's have no public feeds, so they are covered by listing reuters.com and barrons.com as priority sources, which are searched through Google News.",
+  "feeds": [
+    { "source": "Bloomberg", "name": "Markets", "url": "https://feeds.bloomberg.com/markets/news.rss" },
+    { "source": "Bloomberg", "name": "Economics", "url": "https://feeds.bloomberg.com/economics/news.rss" },
+    { "source": "The New York Times", "name": "Business", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml" },
+    { "source": "The New York Times", "name": "Economy", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml" },
+    { "source": "Financial Times", "name": "Markets", "url": "https://www.ft.com/markets?format=rss" },
+    { "source": "Financial Times", "name": "Global Economy", "url": "https://www.ft.com/global-economy?format=rss" },
+    { "source": "The Wall Street Journal", "name": "Markets", "url": "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain" },
+    { "source": "The Wall Street Journal", "name": "Economy", "url": "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed" },
+    { "source": "The Wall Street Journal", "name": "World News", "url": "https://feeds.content.dowjones.io/public/rss/RSSWorldNews" },
+    { "source": "TIME", "name": "Latest", "url": "https://time.com/feed/" }
+  ]
+}
