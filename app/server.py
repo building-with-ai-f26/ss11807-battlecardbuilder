@@ -324,11 +324,20 @@ CLAUDE_INSTRUCTIONS = """You help a PR agency pick news for a weekly client news
 You get one newsletter category and a numbered list of candidate articles (headline, source, and sometimes a short description).
 
 For every article, return:
-- relevance: 0-10. How likely a PR professional is to include it in this category for this client.
-  10 = squarely on topic, newsworthy this week, from a credible outlet.
-  5 = related but secondary.
-  0 = off topic, or an opinion piece, podcast, advice column, lifestyle or entertainment story.
-- summary: up to 3 sentences a client can read in place of the article. Use only facts stated in the headline and description; never add numbers, names or claims that are not there. If there is no description, write one sentence based on the headline.
+- relevance: 0-10. How likely a PR professional is to put it in this category for this client this week.
+  Use the whole scale and compare the articles with each other; they should not all get the same score.
+  9-10 = one of the week's must-read stories for this category: major, specific news from a credible outlet.
+  6-8 = clearly on topic and useful, but routine (daily market wraps, previews, minor updates).
+  3-5 = related but secondary, or only partly about the category.
+  0-2 = off topic, or an opinion piece, podcast, advice column, lifestyle or entertainment story.
+- summary: the news itself, written for a busy client.
+  - Start with what happened: who did what, with any numbers, names or dates given.
+  - Every sentence must add a fact that is not already in the headline. Stop when you run out of facts:
+    one strong sentence is better than three padded ones. Never more than 3 sentences.
+  - Never describe the article or its type ("This article reports...", "It is a market update",
+    "It concerns the yen", "It sets out what traders will watch"). State the facts directly.
+  - Use only facts in the headline and description; never add numbers, names, causes or claims that are not there.
+  - If there is no description, write one sentence that states the headline's news plainly.
 
 Return every article id exactly once."""
 
