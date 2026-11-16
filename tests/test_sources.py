@@ -101,7 +101,17 @@ class MergeAndRankTests(unittest.TestCase):
         top = server.merge_and_rank(results, ["reuters.com"])
         self.assertEqual([a["headline"] for a in top], ["New priority", "Old priority", "New other"])
         self.assertTrue(top[0]["priority"])
-        self.assertIsInstance(top[0]["date"], str)  # dates are turned into text for the web page
+
+    def test_drops_articles_older_than_7_days_or_undated(self):
+        undated = article("No date", "https://example.com/3")
+        undated["date"] = None
+        results = [
+            article("This week", "https://example.com/1", days_old=6),
+            article("From 2015", "https://example.com/2", days_old=3950),
+            article("Eight days old", "https://example.com/4", days_old=8),
+            undated,
+        ]
+        self.assertEqual([a["headline"] for a in server.merge_and_rank(results, [])], ["This week"])
 
     def test_keeps_only_top_five(self):
         results = [article(f"Story {i}", f"https://example.com/{i}") for i in range(8)]
@@ -122,6 +132,73 @@ class FeedSearchTests(unittest.TestCase):
         finally:
             server.publisher_feed_articles = original
         self.assertEqual([a["headline"] for a in found], ["Currency traders brace"])
+
+
+class ClaudeStepTests(unittest.TestCase):
+    """Claude is replaced by a fake response, so these tests cost nothing."""
+
+    def fake_response(self, items, stop_reason="end_turn"):
+        import json
+        return {
+            "stop_reason": stop_reason,
+            "content": [{"type": "thinking", "thinking": ""},
+                        {"type": "text", "text": json.dumps({"articles": items})}],
+            "usage": {"input_tokens": 2000, "output_tokens": 1000},
+        }
+
+    def run_with(self, response, articles):
+        original = server.call_claude
+        server.call_claude = lambda prompt: response
+        try:
+            return server.score_with_claude("Acme Payments", "FX", "currency", articles)
+        finally:
+            server.call_claude = original
+
+    def test_scores_summaries_and_cost(self):
+        articles = [article("Dollar falls", "https://ft.com/1"), article("Recipe of the week", "https://ft.com/2")]
+        articles[0]["description"] = "The dollar fell 1% against the euro."
+        info = self.run_with(self.fake_response([
+            {"id": 0, "relevance": 9, "summary": "The dollar fell 1% against the euro."},
+            {"id": 1, "relevance": 0, "summary": "A recipe."},
+        ]), articles)
+        self.assertEqual(articles[0]["relevance"], 9)
+        self.assertEqual(articles[0]["summary"], "The dollar fell 1% against the euro.")
+        # 2000 input tokens x $0.10/M + 1000 output tokens x $0.50/M = $0.0007
+        self.assertAlmostEqual(info["cost_usd"], 0.0007)
+
+    def test_rank_puts_best_score_first_and_flags_low(self):
+        articles = [article("Weak", "https://a.com/1"), article("Strong", "https://a.com/2")]
+        for a in articles:
+            a["priority"] = False
+        articles[0]["relevance"], articles[1]["relevance"] = 2, 8
+        top = server.rank_by_relevance(articles)
+        self.assertEqual([a["headline"] for a in top], ["Strong", "Weak"])
+        self.assertEqual([a["low_relevance"] for a in top], [False, True])
+
+    def test_refusal_raises(self):
+        with self.assertRaises(RuntimeError):
+            self.run_with(self.fake_response([], stop_reason="refusal"), [article("x", "https://a.com")])
+
+    def test_falls_back_when_claude_fails(self):
+        cands = [article(f"Story {i}", f"https://a.com/{i}") for i in range(3)]
+        for a in cands:
+            a["priority"] = False
+        saved = (server.gather_candidates, server.call_claude, os.environ.get("ANTHROPIC_API_KEY"))
+        server.gather_candidates = lambda *args: cands
+        server.call_claude = lambda prompt: (_ for _ in ()).throw(RuntimeError("Claude API error 401"))
+        os.environ["ANTHROPIC_API_KEY"] = "test-key"
+        try:
+            top, ai = server.fetch_news("story", "", [])
+        finally:
+            server.gather_candidates, server.call_claude = saved[0], saved[1]
+            if saved[2] is None:
+                os.environ.pop("ANTHROPIC_API_KEY")
+            else:
+                os.environ["ANTHROPIC_API_KEY"] = saved[2]
+        self.assertEqual(len(top), 3)
+        self.assertFalse(ai["used"])
+        self.assertIn("401", ai["error"])
+        self.assertIsInstance(top[0]["date"], str)  # dates are turned into text for the web page
 
 
 class GnewsTests(unittest.TestCase):

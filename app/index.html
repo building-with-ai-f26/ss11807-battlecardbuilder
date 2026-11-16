@@ -128,6 +128,9 @@
       padding: 1px 6px; border-radius: 4px; margin-right: 6px;
     }
     .tag.priority { color: #065f46; background: #d1fae5; }
+    .tag.score { color: #5b21b6; background: #ede9fe; }
+    .ai-disclaimer { font-size: 13px; color: var(--muted); background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
+    .status.ai { color: #5b21b6; }
     .tag.other { color: #374151; background: #f3f4f6; }
     .tag.manual { color: #5b21b6; background: #ede9fe; }
     .tag.report { color: #92400e; background: #fef3c7; }
@@ -174,6 +177,11 @@
       <h1>Client News Digest <span class="badge">Prototype</span></h1>
       <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
     </header>
+
+    <p class="ai-disclaimer">
+      Article summaries are written by AI from each headline (and a short description when the source provides one),
+      not the full article, so check the article before sending. Only articles from the past 7 days are shown.
+    </p>
 
     <div class="notice" id="file-warning" hidden>
       This page needs its local server to fetch news. In Terminal, run
@@ -308,7 +316,8 @@ americanbanker.com</textarea>
     function filterReason(article) {
       const text = `${article.headline} ${article.source}`;
       const match = FILTERS.find((f) => f.pattern.test(text));
-      return match ? match.reason : "";
+      if (match) return match.reason;
+      return article.low_relevance ? `low relevance (${article.relevance}/10)` : "";
     }
 
     // ---------------------------------------------------------------
@@ -470,7 +479,9 @@ americanbanker.com</textarea>
       const params = new URLSearchParams({
         terms: cat.terms || cat.name,
         exclude: cat.exclude,
-        priority: state.priority.join(",")
+        priority: state.priority.join(","),
+        category: cat.name,
+        client: state.client
       });
       try {
         const response = await fetch(`/api/news?${params}`);
@@ -482,6 +493,7 @@ americanbanker.com</textarea>
           state.articles[id] = { ...a, id, category: cat.name, filterReason: reason, status: reason ? "filtered" : "included" };
           if (!reason) state.order.push(id);
         });
+        cat.ai = data.ai || { used: false };
         cat.status = "ok";
       } catch (err) {
         cat.status = "error";
@@ -509,12 +521,12 @@ americanbanker.com</textarea>
 
     function articleCard(a, position, includedCount) {
       const tags = [
-        a.priority ? '<span class="tag priority">Priority source</span>' : '<span class="tag other">Other source</span>',
         a.manual ? '<span class="tag manual">Manual</span>' : "",
+        a.relevance != null ? `<span class="tag score">AI relevance ${a.relevance}/10</span>` : "",
         REPORT_WORDS.test(a.headline) ? '<span class="tag report">Possible report</span>' : "",
         a.filterReason ? `<span class="tag filter">Filtered: ${escapeHtml(a.filterReason)}</span>` : ""
       ].join("");
-      const why = a.manual ? "Added manually" : `${a.priority ? "Priority source" : "Other source"} · ${timeAgo(a.date)}`;
+      const why = a.manual ? "Added manually" : timeAgo(a.date);
       const dateText = a.date ? ` · ${escapeHtml(formatDate(a.date))}` : "";
 
       const buttons = a.status === "filtered"
@@ -528,7 +540,7 @@ americanbanker.com</textarea>
           <p>${tags}</p>
           <p class="headline"><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.headline)}</a></p>
           <p class="meta">
-            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText}${a.via ? ` · via ${escapeHtml(a.via)}` : ""} ·
+            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText} ·
             <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
           </p>
           ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}
@@ -579,10 +591,15 @@ americanbanker.com</textarea>
         } else if (cat.status === "error") {
           status = `<p class="status fail">Couldn't load news for ${escapeHtml(cat.name)}: ${escapeHtml(cat.error)}</p>`;
         } else {
-          const priorityCount = fetched.filter((a) => a.priority).length;
-          if (fetched.length < 2 || priorityCount === 0) {
-            status = `<p class="status weak">No strong matches — try refining the search terms.
-              <span class="optional">(${fetched.length} unfiltered result${fetched.length === 1 ? "" : "s"}, ${priorityCount} from priority sources)</span></p>`;
+          const ai = cat.ai || {};
+          if (ai.used) {
+            status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries · $${ai.cost_usd.toFixed(4)}</p>`;
+          } else if (ai.error) {
+            status += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
+          }
+          if (fetched.length < 2) {
+            status += `<p class="status weak">No strong matches — try refining the search terms.
+              <span class="optional">(${fetched.length} unfiltered result${fetched.length === 1 ? "" : "s"} from the past 7 days)</span></p>`;
           }
         }
 
@@ -633,6 +650,7 @@ americanbanker.com</textarea>
             priority_source: article.priority,
             manual: Boolean(article.manual),
             filter_reason: article.filterReason || "",
+            ai_relevance: article.relevance ?? null,
             url: article.url,
             reasons: fb.reasons,
             note: fb.note.trim()
