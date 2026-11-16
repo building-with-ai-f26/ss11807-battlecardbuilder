@@ -158,13 +158,39 @@ class ClaudeStepTests(unittest.TestCase):
         articles = [article("Dollar falls", "https://ft.com/1"), article("Recipe of the week", "https://ft.com/2")]
         articles[0]["description"] = "The dollar fell 1% against the euro."
         info = self.run_with(self.fake_response([
-            {"id": 0, "relevance": 9, "summary": "The dollar fell 1% against the euro."},
-            {"id": 1, "relevance": 0, "summary": "A recipe."},
+            {"id": 0, "topic_fit": 4, "client_impact": 1, "newsworthiness": 2, "source_format": 2,
+             "excluded_format": False, "summary": "The dollar fell 1% against the euro."},
+            {"id": 1, "topic_fit": 0, "client_impact": 0, "newsworthiness": 1, "source_format": 2,
+             "excluded_format": True, "summary": "A recipe."},
         ]), articles)
         self.assertEqual(articles[0]["relevance"], 9)
+        self.assertEqual(articles[0]["relevance_parts"]["topic_fit"], 4)
+        self.assertEqual(articles[1]["relevance"], 2)  # excluded format: capped at 2
         self.assertEqual(articles[0]["summary"], "The dollar fell 1% against the euro.")
         # 2000 input tokens x $0.10/M + 1000 output tokens x $0.50/M = $0.0007
         self.assertAlmostEqual(info["cost_usd"], 0.0007)
+
+    def test_rubric_adds_parts_and_keeps_ranges(self):
+        total, parts = server.rubric_score({"topic_fit": 4, "client_impact": 2, "newsworthiness": 1,
+                                            "source_format": 2, "excluded_format": False})
+        self.assertEqual(total, 9)
+        self.assertEqual(parts["newsworthiness"], 1)
+        # Out-of-range parts are pulled back into range (topic_fit max 4, others max 2, min 0).
+        total, _ = server.rubric_score({"topic_fit": 9, "client_impact": 5, "newsworthiness": -1,
+                                        "source_format": 2, "excluded_format": False})
+        self.assertEqual(total, 8)
+
+    def test_opinion_and_podcasts_capped_at_two(self):
+        total, parts = server.rubric_score({"topic_fit": 4, "client_impact": 2, "newsworthiness": 2,
+                                            "source_format": 2, "excluded_format": True})
+        self.assertEqual(total, 2)
+        self.assertTrue(parts["excluded_format"])
+
+    def test_prompt_lists_companies_to_watch(self):
+        prompt = server.build_claude_prompt("Acme Payments", "FX", "currency",
+                                            [article("Dollar falls", "https://ft.com/1")], ["Stripe", "Adyen"])
+        self.assertIn("Companies to watch: Stripe, Adyen", prompt)
+        self.assertIn("[0] Dollar falls", prompt)
 
     def test_rank_puts_best_score_first_and_flags_low(self):
         articles = [article("Weak", "https://a.com/1"), article("Strong", "https://a.com/2")]

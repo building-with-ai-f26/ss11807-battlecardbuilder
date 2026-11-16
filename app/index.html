@@ -213,6 +213,10 @@
         <label for="client">Client name</label>
         <input type="text" id="client" placeholder="e.g., Acme Payments" />
 
+        <label for="companies">Competitors or companies to watch <span class="optional">(optional)</span></label>
+        <p class="hint">Separate names with commas. Articles that name the client or one of these companies score higher.</p>
+        <input type="text" id="companies" placeholder="e.g., Stripe, Adyen, PayPal" />
+
         <label for="priority-sources">Priority sources</label>
         <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
         <textarea class="field" id="priority-sources" rows="10">reuters.com
@@ -346,7 +350,7 @@ americanbanker.com</textarea>
     //             Removed ones keep their spot so Undo puts them back there.
     //             The draft uses the included ones in this order.
     // ---------------------------------------------------------------
-    let state = { client: "", priority: [], categories: [], articles: {}, order: [] };
+    let state = { client: "", companies: [], priority: [], categories: [], articles: {}, order: [] };
     let nextId = 1;
 
     const $ = (id) => document.getElementById(id);
@@ -476,8 +480,9 @@ americanbanker.com</textarea>
       if (message) return;
 
       state.client = client;
+      state.companies = [...new Set($("companies").value.split(",").map((c) => c.trim()).filter(Boolean))];
       state.priority = [...new Set(domains)];
-      track("search_started", { categories: cats.length, priority_sources: new Set(domains).size });
+      track("search_started", { categories: cats.length, priority_sources: new Set(domains).size, companies_to_watch: state.companies.length });
       state.categories = cats.map((c) => ({ ...c, status: "loading", error: "", showFiltered: false }));
 
       // A new search replaces fetched articles; manual ones stay.
@@ -498,7 +503,8 @@ americanbanker.com</textarea>
         exclude: cat.exclude,
         priority: state.priority.join(","),
         category: cat.name,
-        client: state.client
+        client: state.client,
+        companies: state.companies.join(",")
       });
       try {
         const response = await fetch(`/api/news?${params}`);
@@ -674,6 +680,7 @@ americanbanker.com</textarea>
             manual: Boolean(article.manual),
             filter_reason: article.filterReason || "",
             ai_relevance: article.relevance ?? null,
+            ai_relevance_parts: article.relevance_parts || null,
             url: article.url,
             reasons: fb.reasons,
             note: fb.note.trim()

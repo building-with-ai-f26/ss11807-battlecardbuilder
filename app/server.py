@@ -319,17 +319,28 @@ PRICE_INPUT_PER_MTOK = 0.10
 PRICE_OUTPUT_PER_MTOK = 0.50
 MAX_AI_CANDIDATES = 20  # articles sent to Claude per category
 MIN_RELEVANCE = 5       # 0-10; articles scored lower go to the "filtered" pile on the page
+# Rubric: Claude scores each part; the code adds them up (max 10) and applies the format cap.
+RUBRIC_MAX = {"topic_fit": 4, "client_impact": 2, "newsworthiness": 2, "source_format": 2}
+EXCLUDED_FORMAT_CAP = 2  # op-eds, podcasts, advice columns, sponsored, lifestyle: at most 2 in total
 
 CLAUDE_INSTRUCTIONS = """You help a PR agency pick news for a weekly client newsletter.
-You get one newsletter category and a numbered list of candidate articles (headline, source, and sometimes a short description).
+You get the client, the companies to watch (the client's competitors and other companies the agency tracks),
+one newsletter category, and a numbered list of candidate articles (headline, source, and sometimes a short description).
+Work out the client's industry from the client name, the companies to watch and the category.
 
-For every article, return:
-- relevance: 0-10. How likely a PR professional is to put it in this category for this client this week.
-  Use the whole scale and compare the articles with each other; they should not all get the same score.
-  9-10 = one of the week's must-read stories for this category: major, specific news from a credible outlet.
-  6-8 = clearly on topic and useful, but routine (daily market wraps, previews, minor updates).
-  3-5 = related but secondary, or only partly about the category.
-  0-2 = off topic, or an opinion piece, podcast, advice column, lifestyle or entertainment story.
+For every article, score each part of this rubric (whole numbers only):
+- topic_fit (0-4): is the article mainly about this category? 4 = squarely about it; 2 = partly about it
+  or only one angle of it; 0 = a passing mention or not about it at all.
+- client_impact (0-2): does it matter to this client? 2 = names the client or a company to watch, or directly
+  affects the client's business, customers, regulators or competitors; 1 = relevant to the client's industry
+  in general; 0 = no clear link to the client.
+- newsworthiness (0-2): 2 = a specific new development (a decision, data release, deal, rule change, major move);
+  1 = a routine daily market wrap, week-ahead preview or recap; 0 = old, vague or evergreen content.
+- source_format (0-2): 2 = a straight news report from a credible outlet; 1 = a credible but lesser-known outlet,
+  a trade blog or a press-release style piece; 0 = an unreliable source.
+- excluded_format (true/false): true if it is an op-ed or opinion piece, podcast or podcast transcript,
+  advice column, sponsored content, or a lifestyle or entertainment story.
+Score each article on its own merits; do not give them all the same scores.
 - summary: the news itself, written for a busy client.
   - Start with what happened: who did what, with any numbers, names or dates given.
   - Every sentence must add a fact that is not already in the headline. Stop when you run out of facts:
@@ -350,10 +361,15 @@ SCORE_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "id": {"type": "integer"},
-                    "relevance": {"type": "integer"},
+                    "topic_fit": {"type": "integer"},
+                    "client_impact": {"type": "integer"},
+                    "newsworthiness": {"type": "integer"},
+                    "source_format": {"type": "integer"},
+                    "excluded_format": {"type": "boolean"},
                     "summary": {"type": "string"},
                 },
-                "required": ["id", "relevance", "summary"],
+                "required": ["id", "topic_fit", "client_impact", "newsworthiness",
+                             "source_format", "excluded_format", "summary"],
                 "additionalProperties": False,
             },
         }
@@ -363,8 +379,15 @@ SCORE_SCHEMA = {
 }
 
 
-def build_claude_prompt(client, category, terms, articles):
-    lines = [f"Client: {client or 'not given'}", f"Category: {category}", f"Search terms: {terms}", "", "Articles:"]
+def build_claude_prompt(client, category, terms, articles, companies=()):
+    lines = [
+        f"Client: {client or 'not given'}",
+        f"Companies to watch: {', '.join(companies) if companies else 'none given'}",
+        f"Category: {category}",
+        f"Search terms: {terms}",
+        "",
+        "Articles:",
+    ]
     for i, a in enumerate(articles):
         lines.append(f"[{i}] {a['headline']} ({a['source']})")
         if a["description"]:
@@ -406,9 +429,21 @@ def run_cost(usage):
             + usage.get("output_tokens", 0) * PRICE_OUTPUT_PER_MTOK) / 1_000_000
 
 
-def score_with_claude(client, category, terms, articles):
+def rubric_score(item):
+    """Add up the rubric parts (each kept within its range); excluded formats are capped at 2.
+
+    Returns (total out of 10, the parts) so the breakdown can be saved for later review.
+    """
+    parts = {name: max(0, min(top, int(item.get(name, 0)))) for name, top in RUBRIC_MAX.items()}
+    total = sum(parts.values())
+    if item.get("excluded_format"):
+        total = min(total, EXCLUDED_FORMAT_CAP)
+    return total, {**parts, "excluded_format": bool(item.get("excluded_format"))}
+
+
+def score_with_claude(client, category, terms, articles, companies=()):
     """Add a relevance score and summary to each article. Returns usage/cost info for the page."""
-    response = call_claude(build_claude_prompt(client, category, terms, articles))
+    response = call_claude(build_claude_prompt(client, category, terms, articles, companies))
     if response.get("stop_reason") == "refusal":
         raise RuntimeError("Claude declined this request")
     if response.get("stop_reason") == "max_tokens":
@@ -421,7 +456,7 @@ def score_with_claude(client, category, terms, articles):
         item = scores.get(i)
         if item is None:
             continue  # Claude skipped it; the article keeps no score and ranks last
-        article["relevance"] = max(0, min(10, item["relevance"]))
+        article["relevance"], article["relevance_parts"] = rubric_score(item)
         article["summary"] = item["summary"].strip()
 
     usage = response.get("usage", {})
@@ -446,7 +481,7 @@ def rank_by_relevance(articles, limit=MAX_ARTICLES):
     return top
 
 
-def fetch_news(terms, exclude, priority_sites, category="", client=""):
+def fetch_news(terms, exclude, priority_sites, category="", client="", companies=()):
     """Search every source for one category and return the top 5 articles.
 
     With an ANTHROPIC_API_KEY, Claude scores and summarizes the candidates and the
@@ -458,7 +493,7 @@ def fetch_news(terms, exclude, priority_sites, category="", client=""):
     if os.environ.get("ANTHROPIC_API_KEY", "").strip() and candidates:
         to_score = candidates[:MAX_AI_CANDIDATES]
         try:
-            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score)}
+            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies)}
             top = rank_by_relevance(to_score)
         except Exception as error:  # bad key, spend limit, timeout, unexpected answer...
             print(f"  Claude step failed: {error}")
@@ -527,10 +562,11 @@ class Handler(SimpleHTTPRequestHandler):
         priority = [s for s in params.get("priority", [""])[0].split(",") if s]
         category = params.get("category", [""])[0].strip()
         client = params.get("client", [""])[0].strip()
+        companies = [c.strip() for c in params.get("companies", [""])[0].split(",") if c.strip()]
         if not terms:
             return self.send_json(400, {"error": "Missing search terms."})
         try:
-            articles, ai = fetch_news(terms, exclude, priority, category, client)
+            articles, ai = fetch_news(terms, exclude, priority, category, client, companies)
             self.send_json(200, {"articles": articles, "ai": ai})
         except Exception as error:  # network failure, timeout, bad XML, etc.
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
