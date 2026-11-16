@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Client News Digest · Prototype</title>
+
+  <!-- PostHog analytics (public project token; records pageviews, clicks, and session replays) -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="Eh Rh Ph Oh Lh qh init yd bd dd fd Sd wc md xd ad Ed Ad Rd Pd Od Fd capture getExtension gr pd gd calculateEventProperties Ld register register_once register_for_session unregister unregister_for_session zd hd jd getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys onActiveMatchingSurveysChanged renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Hd identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Ud shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty qd Td createPersonProfile setInternalOrTestUser Bd Uh zh opt_in_capturing opt_out_capturing Hh has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing $d debug kc Ls getPageViewId captureTraceFeedback captureTraceMetric rd".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_rJbfGrAeKNgVL9Q4gcuALSzMWys2zqEQtAwSnmdizEk5', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
+        person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
+    })
+  </script>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -181,6 +191,7 @@
     <p class="ai-disclaimer">
       Article summaries are written by AI from each headline (and a short description when the source provides one),
       not the full article, so check the article before sending. Only articles from the past 7 days are shown.
+      This page uses PostHog to record clicks and session replays so we can see how people use it.
     </p>
 
     <div class="notice" id="file-warning" hidden>
@@ -289,6 +300,11 @@ americanbanker.com</textarea>
   <script>
     const MIN_CATEGORIES = 3;
     const MAX_CATEGORIES = 8;
+
+    // PostHog event helper. Sends counts and scores only, never client names or article text.
+    function track(event, props = {}) {
+      try { if (window.posthog) posthog.capture(event, props); } catch (e) { /* analytics must never break the app */ }
+    }
     const FEEDBACK_REASONS = ["Off-topic", "Low-quality source", "Not this week", "Industry report"];
     const REPORT_WORDS = /\b(report|survey|index|outlook|whitepaper|white paper)\b/i;
 
@@ -461,6 +477,7 @@ americanbanker.com</textarea>
 
       state.client = client;
       state.priority = [...new Set(domains)];
+      track("search_started", { categories: cats.length, priority_sources: new Set(domains).size });
       state.categories = cats.map((c) => ({ ...c, status: "loading", error: "", showFiltered: false }));
 
       // A new search replaces fetched articles; manual ones stay.
@@ -495,6 +512,12 @@ americanbanker.com</textarea>
         });
         cat.ai = data.ai || { used: false };
         cat.status = "ok";
+        track("category_loaded", {
+          articles: data.articles.length,
+          ai_used: !!cat.ai.used,
+          ai_cost_usd: cat.ai.cost_usd || 0,
+          ai_error: cat.ai.error ? true : false
+        });
       } catch (err) {
         cat.status = "error";
         cat.error = location.protocol === "file:"
@@ -674,6 +697,7 @@ americanbanker.com</textarea>
 
       switch (btn.dataset.action) {
         case "remove":
+          track("article_removed", { ai_relevance: article.relevance ?? null, manual: !!article.manual });
           article.status = "removed";
           article.feedbackOpen = true;
           article.feedbackSaved = false;
@@ -684,6 +708,7 @@ americanbanker.com</textarea>
           article.feedbackOpen = false;
           break;
         case "include":
+          track("filtered_article_included", { ai_relevance: article.relevance ?? null, filter_reason: article.filterReason || "" });
           article.status = "included";
           state.order.push(article.id);
           break;
@@ -745,6 +770,7 @@ americanbanker.com</textarea>
         status: "included"
       };
       state.order.push(id);
+      track("article_added_manually");
       $("manual-url").value = $("manual-headline").value = $("manual-summary").value = "";
       renderResults();
     });
@@ -810,6 +836,7 @@ americanbanker.com</textarea>
         draftEdited = false;
       }
       $("copied").hidden = true;
+      track("draft_opened", { articles: Object.values(state.articles).filter((a) => a.status === "included").length });
       showStep(3);
     });
 
@@ -873,6 +900,7 @@ americanbanker.com</textarea>
     }
 
     $("copy-email").addEventListener("click", async () => {
+      track("draft_copied", { format: "email" });
       const html = cleanDraft().innerHTML;
       const text = draftPlainText();
       try {
@@ -896,6 +924,7 @@ americanbanker.com</textarea>
     });
 
     $("copy-text").addEventListener("click", async () => {
+      track("draft_copied", { format: "plain_text" });
       const text = draftPlainText();
       try {
         await navigator.clipboard.writeText(text);
