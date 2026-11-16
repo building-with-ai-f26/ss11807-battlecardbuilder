@@ -188,6 +188,14 @@
         <img src="prototype-2/01-ai-scores-fx.png" alt="FX category with five articles from WSJ and Reuters, each tagged AI relevance 8/10 with a short AI summary" />
         <figcaption>One full user action with a real AI call: the app gathers this week's FX articles from Google News, publisher RSS feeds and GNews, then Claude (Haiku 5.5) scores 20 candidates for relevance and summarizes the top 5. Cost: $0.0008 for this category.</figcaption>
       </figure>
+      <figure class="shot">
+        <img src="prototype-2/03-posthog-activity-events.png" alt="PostHog Activity list showing draft_copied, draft_opened, article_removed and click events from localhost:8000" />
+        <figcaption>PostHog in the local app: page views, clicks ("Remove", "Undo", "Copy for email") and custom workflow events (article_removed, draft_opened, draft_copied) from one full run.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-2/02-posthog-session-replay.png" alt="PostHog session replay of the local app, 2 minutes 41 seconds with 29 clicks" />
+        <figcaption>PostHog session replay of the same run: 2 minutes 41 seconds, 29 clicks. Typed text is masked by default (the priority sources show as asterisks).</figcaption>
+      </figure>
 
       <h3>Build 1: throwaway prototype</h3>
       <figure class="shot">
@@ -276,7 +284,8 @@
         </div>
         <div class="stat-box">
           <div class="stat-label">User Evidence (Analytics from Build 2)</div>
-          <div class="stat-value">[Not yet measured]</div>
+          <div class="stat-value">PostHog live</div>
+          <p class="meta">Verified Nov 15 on the local app: page views, clicks, workflow events and a full session replay (1 builder session, 29 clicks). No outside users yet.</p>
         </div>
         <div class="stat-box">
           <div class="stat-label">Sponsor Call (Week 6)</div>
