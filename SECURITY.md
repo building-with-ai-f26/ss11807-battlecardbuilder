@@ -29,7 +29,7 @@ So the test that fits (slide 31) is **"People sign in": log in as a second accou
 - `/api/config` sends the browser only the Supabase URL and the **publishable** key (designed to be public; RLS protects the data). The Supabase secret key isn't used anywhere and isn't on Render.
 - **Searched the repo too:** all 48 files and every version of every file in the git history, for the same patterns and the actual key values. The only matches are documentation, `.env.example` placeholders (`sk-ant-replace-with-your-key`) and a fake value in a test; **no real key has ever been committed**, so nothing needed rotating. (The PostHog `phc_` project key in the pages is public by design.)
 - Tried to download `.env` from the live site (`/.env`, `/../.env`, `/%2e%2e/.env`, `/..%2f.env`): all refused (404/400).
-- The live site has its **own Anthropic key with a $5 spend limit**, separate from the local one (slide 34).
+- The live site has its **own Anthropic key**, separate from the local one (slide 34), so either can be revoked without touching the other. Both are in the Default workspace and share its $5 monthly limit.
 
 ### 3. Private storage
 
@@ -44,7 +44,7 @@ So the test that fits (slide 31) is **"People sign in": log in as a second accou
 
 ### 5. Spending caps and rate limits
 
-- **Hard caps at the providers:** a $5 spend limit on the live Anthropic key; Exa's free plan stops at its $10 monthly credit (no card on file); NYT is free.
+- **Hard caps at the providers:** Anthropic stops at a **$5 monthly workspace limit** (inside a $10 monthly organization limit), checked in the console on Nov 22 ($0.05 used); Exa's free plan stops at its $10 monthly credit (no card on file); NYT is free.
 - **Rate limit on the AI routes:** each account may make 30 news searches and 10 PDF reads per hour (`RATE_LIMITS` in `app/server.py`). **Tested live:** 11 PDF requests from one account → the 11th got `429 Limit reached: 10 PDF reads per hour`.
 - **Sign-in required for every paid route:** tested live, requests with no token or a fake token get `401` and cost nothing.
 - **Limits on database writes:** the page writes to Supabase directly, so the database itself refuses new rows past a per-account limit: 60 saved clients, 60 newsletters and 300 feedback notes per hour, and 500 / 1,000 / 5,000 in total (a trigger in `supabase/schema.sql`, which also sets `created_at` itself so a backdated time can't dodge the count). **Tested live:** 60 newsletters and 60 saved clients went through, the 61st of each was refused, a backdated row got the real time, and editing an existing row still worked.
