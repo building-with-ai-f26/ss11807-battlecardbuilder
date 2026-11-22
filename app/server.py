@@ -960,6 +960,12 @@ class Handler(SimpleHTTPRequestHandler):
         # Make the browser check for a newer copy of every page and script on each load,
         # so changes show up after a normal refresh instead of an old saved copy.
         self.send_header("Cache-Control", "no-cache")
+        # Security headers: no other site may show Press Pass inside a frame (clickjacking),
+        # browsers must not guess file types, and full page addresses aren't sent to other sites.
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         super().end_headers()
 
     def send_config(self):

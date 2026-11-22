@@ -180,9 +180,33 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 2: local app with real AI scoring (runs on my laptop)<br />
-        <strong>Demo:</strong> Screenshots below. A live cloud link and a two-minute video are coming in Build 5.
+        <strong>Current Status:</strong> Build 3: live on Render, with sign-in and per-user saved data<br />
+        <strong>Live app:</strong> <a href="https://ss11807-battlecardbuilder.onrender.com" onclick="window.posthog && posthog.capture('clicked_live_app')">ss11807-battlecardbuilder.onrender.com</a> (create an account to try it; the first visit after a quiet spell takes 30–60 seconds to wake up)<br />
+        <strong>Security audit:</strong> <a href="https://github.com/building-with-ai-f26/ss11807-battlecardbuilder/blob/main/SECURITY.md">SECURITY.md</a><br />
+        <strong>Demo:</strong> Screenshots below. A two-minute video is coming in Build 5.
       </p>
+
+      <h3>Build 3: live on Render, with sign-in and private data per account</h3>
+      <figure class="shot">
+        <img src="prototype-3/01-account-a-signed-in.png" alt="Press Pass on the live site, signed in as the first account, showing step 1 with saved clients and priority sources" />
+        <figcaption>Account A signed in on the live site. Each account has its own saved client setups.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-3/02-account-a-past-newsletter.png" alt="Past newsletters list for account A showing a Ledger newsletter from Nov 22 with 9 articles across Cold Wallet, Hardware Security and Digital Privacy" />
+        <figcaption>Account A's past newsletter (Ledger, 9 articles) is saved to the database and reopens after signing back in.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-3/03-account-b-signed-in.png" alt="A second account signed in on the live site, with no saved clients" />
+        <figcaption>Security test: a second account (B) signed in on the live site sees no saved clients from account A.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-3/04-account-b-no-newsletters.png" alt="Past newsletters for account B reading No newsletters yet" />
+        <figcaption>Account B gets "No newsletters yet": Row Level Security keeps account A's newsletter private.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="prototype-3/05-phone-live-site.png" alt="Press Pass open on an iPhone at the onrender.com address, signed in" style="max-width: 320px;" />
+        <figcaption>The live site on a phone, signed in.</figcaption>
+      </figure>
 
       <h3>Build 2: AI relevance scores and summaries</h3>
       <figure class="shot">
@@ -327,9 +351,11 @@
       <div class="log-entry">
         <h3>Build 3 · Build.exe: The Core Workflow (Due Nov 23)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [End-to-end workflow working with real inputs + PostHog funnel events]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> Press Pass is live at <a href="https://ss11807-battlecardbuilder.onrender.com">ss11807-battlecardbuilder.onrender.com</a> (Beginner lane: Ship it). People sign in with email and password (Supabase Auth), and each account keeps its own saved client setups, past newsletters and article-removal feedback, with Row Level Security on every table. Search moved to Exa (news from the last 7 days, with article highlights) plus the NYT Article Search API, and each category has a new "What it means for this client" field to keep results on topic. The paid routes need a sign-in and have per-user hourly limits. Full audit in <a href="https://github.com/building-with-ai-f26/ss11807-battlecardbuilder/blob/main/SECURITY.md">SECURITY.md</a>.</li>
+          <li><strong>What broke / changed in PRD:</strong> My first real test run failed: I removed 13 of the 15 articles that made the cut. "Hardware Security" pulled in BitLocker and Nvidia stories instead of crypto hardware wallets, the same Coinbase story appeared twice, summaries just repeated the headline (Google News only provides headlines), and every card said 9/10 with no reason. Switching to Exa and NYT and adding category descriptions is the first fix; duplicate detection, explained scores with a stricter cutoff, and real summaries come next. The first Render deploy failed because the service was connected to an old copy of the class template instead of this repo. The live security check found that the server's own code was downloadable (no secrets in it), so the site now serves only its three public files. Email confirmation is off because Supabase's free email can't reach outside addresses.</li>
+          <li><strong>Things learned with AI:</strong> How Row Level Security keeps each user's rows private, why a publishable key can sit in the browser but a secret key can't, what changes when an app leaves localhost (PORT, environment variables, files that vanish on restart), rate limits as a spending guard, and pinning a CDN library with an integrity hash.</li>
+          <li><strong>Security test:</strong> Signed in as a second account on the live site: it sees "No newsletters yet" and none of the first account's data. A scripted check on the live site passed 39/39 (no reading, changing, deleting or planting another account's rows), and the paid routes refused requests without a sign-in.</li>
+          <li><strong>Cost & time this week:</strong> $0.09 ($0.04 Claude API + $0.05 Exa search; NYT, Render and Supabase are free) · 5 hours</li>
         </ul>
       </div>
 

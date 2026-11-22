@@ -5,7 +5,7 @@
 ## 1. Project Overview
 - **What this repo builds:** Press Pass, a newsletter builder for PR agencies. It gathers this week's news for each of a client's categories, has Claude score each article's relevance and write a short summary, and turns the articles a person approves into an email-ready draft.
 - **Primary user & core workflow:** An account person at a PR agency who writes a weekly client news roundup. They enter the client, priority sources and categories, review the AI-ranked articles (reorder, remove with feedback, add paywalled ones by hand), then copy the draft into email. See the living PRD in `docs/index.html`.
-- **Tech stack:** Plain HTML/CSS/JS page (`app/index.html`) + Python 3.9+ standard-library server (`app/server.py`). News comes from the Exa search API (main source when `EXA_API_KEY` is set: one search limited to the client's priority sources, one open search, both last 7 days with highlights), the NYT Article Search API and publisher RSS feeds; without an Exa key it falls back to Google News RSS and the GNews API; scoring and summaries come from Claude Haiku 5.5 (`claude-haiku-5-5`) through a direct HTTPS call. No packages to install. Sign-in and saved data: Supabase (Auth + Postgres with Row Level Security); the browser loads `supabase-js` from the jsDelivr CDN at a pinned version. Analytics: PostHog on the app, the sign-in page and the Product Page; signed-in users are identified by Supabase user id, never email.
+- **Tech stack:** Plain HTML/CSS/JS page (`app/index.html`) + Python 3.9+ standard-library server (`app/server.py`). News comes from the Exa search API (main source when `EXA_API_KEY` is set: one search limited to the client's priority sources, one open search, both last 7 days with highlights), the NYT Article Search API and publisher RSS feeds; without an Exa key it falls back to Google News RSS and the GNews API; scoring and summaries come from Claude Haiku 5.5 (`claude-haiku-5-5`) through a direct HTTPS call. No packages to install. Sign-in and saved data: Supabase (Auth + Postgres with Row Level Security); the browser loads `supabase-js` 2.119.0 from the jsDelivr CDN, pinned with an SRI integrity hash (use `dist/umd/supabase.js`, never the generated `.min.js`; recompute the hash when upgrading). Analytics: PostHog on the app, the sign-in page and the Product Page; signed-in users are identified by Supabase user id, never email.
 
 ## 2. Project Structure
 ```
@@ -44,6 +44,7 @@ tests/
                     feedback notes can't be downloaded from the site.
   test_auth.py      Offline tests for sign-in: token check (faked Supabase), every paid route
                     refuses requests without a valid token, /api/config never sends a secret.
+SECURITY.md         Security audit (Build 3): what was checked on the live site, found, fixed, and what is left.
 .env.example        Names of the API keys the app reads. Copy to .env; never commit .env.
 ```
 

@@ -71,6 +71,24 @@ class PrivateFilesTests(unittest.TestCase):
             self.assertEqual(status, 404, path)
             self.assertNotIn(b"def ", body, path)
 
+    def test_security_headers(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.request("GET", "/")
+        response = conn.getresponse()
+        response.read()
+        conn.close()
+        self.assertEqual(response.getheader("X-Frame-Options"), "DENY")
+        self.assertEqual(response.getheader("Content-Security-Policy"), "frame-ancestors 'none'")
+        self.assertEqual(response.getheader("X-Content-Type-Options"), "nosniff")
+
+    def test_pages_pin_supabase_js_with_an_integrity_hash(self):
+        # The library comes from a CDN; the hash makes browsers refuse any changed copy.
+        for page in ("index.html", "signin.html"):
+            with open(os.path.join(server.APP_DIR, page), encoding="utf-8") as f:
+                html = f.read()
+            self.assertIn('supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-', html, page)
+            self.assertNotIn("supabase.min.js", html, page)  # jsDelivr generates .min.js on the fly: unsafe with a hash
+
     def test_head_requests_follow_the_same_rule(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         conn.request("HEAD", "/server.py")
