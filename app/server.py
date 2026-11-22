@@ -51,10 +51,13 @@ MAX_ARTICLES = 5
 CANDIDATES_PER_SEARCH = 10
 DAYS_BACK = 7
 FEED_CACHE_SECONDS = 600  # publisher feeds are re-downloaded at most every 10 minutes
-MAX_DESCRIPTION = 600     # characters of description kept per article
+MAX_DESCRIPTION = 1200    # characters of description (Exa highlights, NYT abstract) kept per article
 USER_AGENT = "Mozilla/5.0 (press-pass-prototype)"
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 GNEWS_URL = "https://gnews.io/api/v4/search"
+EXA_URL = "https://api.exa.ai/search"
+NYT_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+OUTLETS_FILE = os.path.join(APP_DIR, "outlets.json")
 
 AUTH_CACHE_SECONDS = 60   # a checked sign-in token is trusted for up to a minute
 
@@ -101,16 +104,43 @@ def parse_date(text):
         return parsedate_to_datetime(text)
     except (TypeError, ValueError):
         pass
+    text = text.strip().replace("Z", "+00:00")
+    text = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", text)  # NYT writes +0000; Python 3.9 needs +00:00
+    text = re.sub(r"\.(\d{1,6})\d*(?=[+-]\d{2}:\d{2}$)", lambda m: "." + m.group(1).ljust(6, "0"), text)  # fractions -> 6 digits
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def fetch_url(url, timeout=10):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
+
+
+def post_json(url, body, headers, timeout=30):
+    """POST a JSON body and return the parsed JSON answer."""
+    request = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"), method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **headers},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read())
+
+
+def outlet_name(domain):
+    """A readable outlet name ("wsj.com" -> "The Wall Street Journal") from app/outlets.json, else the domain."""
+    try:
+        with open(OUTLETS_FILE, encoding="utf-8") as f:
+            names = json.load(f).get("names", {})
+    except (OSError, ValueError):
+        names = {}
+    for site, name in names.items():
+        if domain == site or domain.endswith("." + site):
+            return name
+    return domain or "Unknown source"
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +205,19 @@ def matches_terms(text, terms, exclude):
     if any(word and has_term(text, word) for word in blocked):
         return False
     return any(group and all(has_term(text, word) for word in group if word) for group in groups)
+
+
+def blocked_words(terms, exclude):
+    """Every excluded word or phrase: the exclude box plus -minus words in the search terms."""
+    words = [t.lstrip("-") for t in split_terms(exclude)]
+    words += [t[1:].strip('"') for t in re.findall(r'"[^"]+"|\S+', terms) if t.startswith("-") and len(t) > 1]
+    return [w for w in words if w]
+
+
+def plain_query(terms):
+    """Search terms without Google-only syntax (-minus words, OR, quotes), for Exa and NYT."""
+    tokens = [t for t in re.findall(r'"[^"]+"|\S+', terms) if not t.startswith("-") and t not in ("AND",)]
+    return " ".join("or" if t == "OR" else t.strip('"') for t in tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +329,117 @@ def search_gnews(terms, exclude):
     return articles
 
 
+def exa_objective(category, about, exclude_words, priority_sites):
+    """The goal this search serves, in plain words. Exa uses it to decide what ranks first.
+
+    Exa's guidance: the query says what to retrieve; what to prefer, what to exclude
+    and which facts to pull go here (writing "not X" in the query pulls in X).
+    """
+    parts = [f"Find this week's news for the '{category}' section of a PR agency's weekly client newsletter."]
+    if about:
+        parts.append(f"The section covers: {about}.")
+    parts.append("Rank first straight news reports of a specific new development squarely about this topic "
+                 "(a launch, deal, ruling, rule change, security incident, data release or major company move).")
+    excluded = "opinion pieces, podcasts, sponsored content, product roundups, and articles about other meanings of the section name"
+    if exclude_words:
+        excluded += ", and anything about " + ", ".join(exclude_words)
+    parts.append(f"Exclude {excluded}.")
+    if priority_sites:
+        parts.append("Prefer established outlets such as " + ", ".join(priority_sites[:12]) + ".")
+    parts.append("Pull who did what, the key numbers, names and dates, and why it matters for this topic.")
+    return " ".join(parts)[:4000]
+
+
+def search_exa(terms, exclude, about="", sites=None, costs=None, category="", priority_sites=()):
+    """Exa news search for the last 7 days, with key passages ("highlights") for each article.
+
+    Follows Exa's recommended request (query + type auto + bare highlights) plus only
+    what the product asked for: category "news", a 7-day published-date window and,
+    with sites, a hard limit to those domains (the client's priority sources).
+    Exa's own cost estimate is added to the costs list. Returns [] when no EXA_API_KEY is set.
+    """
+    key = os.environ.get("EXA_API_KEY", "").strip()
+    if not key:
+        return []
+    topic = plain_query(terms)
+    since = (datetime.now(timezone.utc) - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    body = {
+        "query": f"latest news on {topic}"[:1000],
+        "type": "auto",
+        "objective": exa_objective(category or topic, about, blocked_words(terms, exclude),
+                                   [] if sites else list(priority_sites)),
+        "category": "news",
+        "startPublishedDate": since,
+        # Highlights are the passages most relevant to the search: enough to score and
+        # summarize from, and far cheaper than full article text.
+        "contents": {"highlights": True},
+    }
+    if sites:
+        body["includeDomains"] = list(sites)
+    data = post_json(EXA_URL, body, {"x-api-key": key})
+    if costs is not None:
+        costs.append(float((data.get("costDollars") or {}).get("total") or 0))
+
+    blocked = blocked_words(terms, exclude)
+    articles = []
+    for item in data.get("results", []):
+        url = item.get("url", "")
+        domain = domain_of(url)
+        headline = clean_text(item.get("title", ""))
+        description = clean_text(" … ".join(item.get("highlights") or []))
+        if not headline or any(has_term(f"{headline} {description}", w) for w in blocked):
+            continue
+        articles.append({
+            "headline": headline,
+            "description": description,
+            "source": outlet_name(domain),
+            "domain": domain,
+            "url": url,
+            "date": parse_date(item.get("publishedDate")),
+            "via": "Exa (priority sources)" if sites else "Exa",
+        })
+    return articles
+
+
+def search_nyt(terms, exclude):
+    """NYT Article Search for the last 7 days: official headline, abstract and lead paragraph.
+
+    Returns [] when no NYT_API_KEY is set. The free key allows about 5 searches a minute.
+    """
+    key = os.environ.get("NYT_API_KEY", "").strip()
+    if not key:
+        return []
+    now = datetime.now(timezone.utc)
+    params = urllib.parse.urlencode({
+        "q": plain_query(terms),
+        "begin_date": (now - timedelta(days=DAYS_BACK)).strftime("%Y%m%d"),
+        "end_date": now.strftime("%Y%m%d"),
+        "sort": "relevance",
+        "api-key": key,
+    })
+    data = json.loads(fetch_url(f"{NYT_URL}?{params}", timeout=15))
+    blocked = blocked_words(terms, exclude)
+    articles = []
+    for doc in ((data.get("response") or {}).get("docs") or [])[:CANDIDATES_PER_SEARCH]:
+        headline = clean_text((doc.get("headline") or {}).get("main", ""))
+        abstract = clean_text(doc.get("abstract") or doc.get("snippet") or "")
+        lead = clean_text(doc.get("lead_paragraph") or "")
+        description = abstract if not lead or lead == abstract else f"{abstract} {lead}".strip()
+        url = doc.get("web_url", "")
+        if not headline or not url or any(has_term(f"{headline} {description}", w) for w in blocked):
+            continue
+        articles.append({
+            "headline": headline,
+            "description": description[:MAX_DESCRIPTION],
+            "source": "The New York Times",
+            "domain": "nytimes.com",
+            "url": url,
+            "date": parse_date(doc.get("pub_date")),
+            "via": "NYT API",
+        })
+    return articles
+
+
 # ---------------------------------------------------------------------------
 # Combine and rank
 # ---------------------------------------------------------------------------
@@ -341,6 +495,8 @@ Work out the client's industry from the client name, the companies to watch and 
 For every article, score each part of this rubric (whole numbers only):
 - topic_fit (0-4): is the article mainly about this category? 4 = squarely about it; 2 = partly about it
   or only one angle of it; 0 = a passing mention or not about it at all.
+  If a "What this category means here" line is given, it defines the category: an article about another
+  meaning of the category name scores 0 (e.g. PC or chip security when the category means crypto hardware wallets).
 - client_impact (0-2): does it matter to this client? 2 = names the client or a company to watch, or directly
   affects the client's business, customers, regulators or competitors; 1 = relevant to the client's industry
   in general; 0 = no clear link to the client.
@@ -389,11 +545,16 @@ SCORE_SCHEMA = {
 }
 
 
-def build_claude_prompt(client, category, terms, articles, companies=()):
+def build_claude_prompt(client, category, terms, articles, companies=(), about=""):
     lines = [
         f"Client: {client or 'not given'}",
         f"Companies to watch: {', '.join(companies) if companies else 'none given'}",
         f"Category: {category}",
+    ]
+    if about:
+        # The user's own words for what the category covers; it overrides other readings of the name.
+        lines.append(f"What this category means here: {about}")
+    lines += [
         f"Search terms: {terms}",
         "",
         "Articles:",
@@ -454,9 +615,9 @@ def rubric_score(item):
     return total, {**parts, "excluded_format": bool(item.get("excluded_format"))}
 
 
-def score_with_claude(client, category, terms, articles, companies=()):
+def score_with_claude(client, category, terms, articles, companies=(), about=""):
     """Add a relevance score and summary to each article. Returns usage/cost info for the page."""
-    response = call_claude(build_claude_prompt(client, category, terms, articles, companies))
+    response = call_claude(build_claude_prompt(client, category, terms, articles, companies, about))
     if response.get("stop_reason") == "refusal":
         raise RuntimeError("Claude declined this request")
     if response.get("stop_reason") == "max_tokens":
@@ -559,19 +720,21 @@ def rank_by_relevance(articles, limit=MAX_ARTICLES):
     return top
 
 
-def fetch_news(terms, exclude, priority_sites, category="", client="", companies=()):
+def fetch_news(terms, exclude, priority_sites, category="", client="", companies=(), about=""):
     """Search every source for one category and return the top 5 articles.
 
     With an ANTHROPIC_API_KEY, Claude scores and summarizes the candidates and the
     best-scored ones are returned. Without a key, or if Claude fails, the old
     ranking is used (priority sources first, then newest).
+    Returns (articles, ai info, search info).
     """
-    candidates = gather_candidates(terms, exclude, priority_sites)
+    search = {}
+    candidates = gather_candidates(terms, exclude, priority_sites, about, search, category)
     ai = {"used": False}
     if os.environ.get("ANTHROPIC_API_KEY", "").strip() and candidates:
         to_score = candidates[:MAX_AI_CANDIDATES]
         try:
-            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies)}
+            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies, about)}
             top = rank_by_relevance(to_score)
         except Exception as error:  # bad key, spend limit, timeout, unexpected answer...
             print(f"  Claude step failed: {error}")
@@ -582,31 +745,53 @@ def fetch_news(terms, exclude, priority_sites, category="", client="", companies
 
     for article in top:
         article["date"] = article["date"].isoformat()
-    return top, ai
+    return top, ai, search
 
 
-def gather_candidates(terms, exclude, priority_sites):
-    """Search every source for one category; return all unique candidates, best first."""
+def gather_candidates(terms, exclude, priority_sites, about="", search=None, category=""):
+    """Search every source for one category; return all unique candidates, best first.
+
+    With an EXA_API_KEY, Exa (one search limited to the priority sources, one open
+    search) is the main source, plus NYT and the publisher feeds as backup. Google
+    News and GNews are skipped then: Google gives headlines only, which is why the
+    old summaries just repeated the headline. Without an Exa key the old sources are used.
+    The search dict, if given, is filled with the sources used and Exa's cost.
+    """
+    costs = []
     searches = []
-    if priority_sites:
-        searches.append(("Google News (priority sources)",
-                         lambda: search_google_news(build_query(terms, exclude, priority_sites))[:CANDIDATES_PER_SEARCH]))
-    searches.append(("Google News", lambda: search_google_news(build_query(terms, exclude))[:CANDIDATES_PER_SEARCH]))
+    if os.environ.get("EXA_API_KEY", "").strip():
+        if priority_sites:
+            searches.append(("Exa (priority sources)", lambda: search_exa(
+                terms, exclude, about, priority_sites, costs, category=category)))
+        searches.append(("Exa", lambda: search_exa(
+            terms, exclude, about, None, costs, category=category, priority_sites=priority_sites)))
+    else:
+        if priority_sites:
+            searches.append(("Google News (priority sources)",
+                             lambda: search_google_news(build_query(terms, exclude, priority_sites))[:CANDIDATES_PER_SEARCH]))
+        searches.append(("Google News", lambda: search_google_news(build_query(terms, exclude))[:CANDIDATES_PER_SEARCH]))
+        searches.append(("GNews", lambda: search_gnews(terms, exclude)))
+    if os.environ.get("NYT_API_KEY", "").strip():
+        searches.append(("NYT", lambda: search_nyt(terms, exclude)))
     searches.append(("Publisher feeds", lambda: search_feeds(terms, exclude)))
-    searches.append(("GNews", lambda: search_gnews(terms, exclude)))
 
     # Run the searches at the same time; if one source fails, keep the rest.
-    results, failures = [], []
+    results, failures, failed_names = [], [], set()
     with ThreadPoolExecutor(max_workers=len(searches)) as pool:
-        futures = [(name, pool.submit(search)) for name, search in searches]
+        futures = [(name, pool.submit(run)) for name, run in searches]
         for name, future in futures:
             try:
                 results += future.result()
             except Exception as error:
+                failed_names.add(name)
                 failures.append(f"{name} ({error.__class__.__name__})")
                 print(f"  source failed: {name} ({error.__class__.__name__}: {error})")
     if len(failures) == len(searches):
         raise RuntimeError("every news source failed: " + ", ".join(failures))
+    if search is not None:
+        search["sources"] = [name for name, _ in searches if name not in failed_names]
+        search["failed"] = failures
+        search["cost_usd"] = round(sum(costs), 6)
     return merge_and_rank(results, priority_sites, limit=None)
 
 
@@ -686,11 +871,12 @@ class Handler(SimpleHTTPRequestHandler):
         category = params.get("category", [""])[0].strip()
         client = params.get("client", [""])[0].strip()
         companies = [c.strip() for c in params.get("companies", [""])[0].split(",") if c.strip()]
+        about = params.get("about", [""])[0].strip()[:500]
         if not terms:
             return self.send_json(400, {"error": "Missing search terms."})
         try:
-            articles, ai = fetch_news(terms, exclude, priority, category, client, companies)
-            self.send_json(200, {"articles": articles, "ai": ai})
+            articles, ai, search = fetch_news(terms, exclude, priority, category, client, companies, about)
+            self.send_json(200, {"articles": articles, "ai": ai, "search": search})
         except Exception as error:  # network failure, timeout, bad XML, etc.
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
 
@@ -770,7 +956,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     load_env()
-    print("GNews:", "on" if os.environ.get("GNEWS_API_KEY") else "off (add GNEWS_API_KEY to .env to turn it on)")
+    exa_on = bool(os.environ.get("EXA_API_KEY", "").strip())
+    print("Exa search:", "on (main source; Google News and GNews skipped)" if exa_on else "off (add EXA_API_KEY to .env; using Google News and GNews)")
+    print("NYT Article Search:", "on" if os.environ.get("NYT_API_KEY", "").strip() else "off (add NYT_API_KEY to .env to turn it on)")
+    if not exa_on:
+        print("GNews:", "on" if os.environ.get("GNEWS_API_KEY") else "off (add GNEWS_API_KEY to .env to turn it on)")
     print("Claude scoring:", f"on ({CLAUDE_MODEL})" if os.environ.get("ANTHROPIC_API_KEY") else "off (add ANTHROPIC_API_KEY to .env to turn it on)")
     print("Sign-in:", "on (Supabase)" if all(supabase_settings()) else "NOT SET UP (add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env; the app won't work without them)")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)

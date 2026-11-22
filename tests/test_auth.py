@@ -122,10 +122,10 @@ class ApiRouteTests(unittest.TestCase):
 
     def test_signed_in_news_request_goes_through(self):
         with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
-             mock.patch.object(server, "fetch_news", return_value=([], {"used": False})) as fetch_news:
+             mock.patch.object(server, "fetch_news", return_value=([], {"used": False}, {})) as fetch_news:
             status, data = self.call("/api/news?terms=fx", token="token-a")
         self.assertEqual(status, 200)
-        self.assertEqual(data, {"articles": [], "ai": {"used": False}})
+        self.assertEqual(data, {"articles": [], "ai": {"used": False}, "search": {}})
         fetch_news.assert_called_once()
 
     def test_feedback_is_stamped_with_the_token_owner_not_the_body(self):

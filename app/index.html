@@ -103,6 +103,7 @@
     .category-fields { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 0 10px; }
     .category-fields label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
     .category-fields input { margin-bottom: 14px; font-size: 14px; }
+    .category-fields .cat-about-field { grid-column: 1 / -1; }
     @media (max-width: 640px) { .category-fields { grid-template-columns: 1fr; } }
     .remove-category { color: var(--remove); }
     #add-category { margin-bottom: 20px; }
@@ -217,7 +218,7 @@
     </header>
 
     <p class="ai-disclaimer">
-      Article summaries are written by AI from each headline (and a short description when the source provides one),
+      Article summaries are written by AI from each headline and the short excerpts or abstract the search returns,
       not the full article, so check the article before sending. Only articles from the past 7 days are shown.
       This page uses PostHog to record clicks and session replays so we can see how people use it.
     </p>
@@ -266,8 +267,8 @@ americanbanker.com</textarea>
 
         <label>News categories</label>
         <p class="hint">
-          The name is what appears in the newsletter. Search terms are sent to Google News, GNews and publisher feeds as typed, so
-          "quotes", OR and -minus work (blank = use the name). Excluded words drop matching articles.
+          The name is what appears in the newsletter. Search terms are what Exa and the New York Times search for (blank = use the name).
+          "What it means for this client" keeps results on topic when a name could mean several things. Excluded words drop matching articles.
         </p>
         <div id="category-list"></div>
         <button type="button" id="add-category">+ Add category</button>
@@ -483,6 +484,10 @@ americanbanker.com</textarea>
             <label>Excluded words <span class="optional">(optional)</span></label>
             <input type="text" class="cat-exclude" placeholder='e.g., TV "horror story"' />
           </div>
+          <div class="cat-about-field">
+            <label>What it means for this client <span class="optional">(optional, recommended: keeps results on topic)</span></label>
+            <input type="text" class="cat-about" maxlength="500" placeholder="e.g., crypto hardware wallets like Ledger and Trezor, not PC or chip security" />
+          </div>
         </div>`;
 
       if (list.children.length >= MIN_CATEGORIES) {
@@ -518,7 +523,8 @@ americanbanker.com</textarea>
       const cats = [...document.querySelectorAll(".category-row")].map((row) => ({
         name: row.querySelector(".cat-name").value.trim(),
         terms: row.querySelector(".cat-terms").value.trim(),
-        exclude: row.querySelector(".cat-exclude").value.trim()
+        exclude: row.querySelector(".cat-exclude").value.trim(),
+        about: row.querySelector(".cat-about").value.trim()
       }));
       const names = cats.map((c) => c.name.toLowerCase());
 
@@ -558,6 +564,7 @@ americanbanker.com</textarea>
       const params = new URLSearchParams({
         terms: cat.terms || cat.name,
         exclude: cat.exclude,
+        about: cat.about || "",
         priority: state.priority.join(","),
         category: cat.name,
         client: state.client,
@@ -574,11 +581,16 @@ americanbanker.com</textarea>
           if (!reason) state.order.push(id);
         });
         cat.ai = data.ai || { used: false };
+        cat.search = data.search || {};
         cat.status = "ok";
         track("category_loaded", {
           articles: data.articles.length,
           ai_used: !!cat.ai.used,
           ai_cost_usd: cat.ai.cost_usd || 0,
+          search_cost_usd: cat.search.cost_usd || 0,
+          exa_used: (cat.search.sources || []).some((s) => s.startsWith("Exa")),
+          nyt_used: (cat.search.sources || []).includes("NYT"),
+          has_description: !!cat.about,
           ai_error: cat.ai.error ? true : false
         });
       } catch (err) {
@@ -678,6 +690,12 @@ americanbanker.com</textarea>
           status = `<p class="status fail">Couldn't load news for ${escapeHtml(cat.name)}: ${escapeHtml(cat.error)}</p>`;
         } else {
           const ai = cat.ai || {};
+          const search = cat.search || {};
+          if (search.sources && search.sources.length) {
+            const cost = search.cost_usd ? ` · $${search.cost_usd.toFixed(4)}` : "";
+            const failed = search.failed && search.failed.length ? ` (couldn't reach: ${search.failed.join(", ")})` : "";
+            status += `<p class="status">Searched ${escapeHtml(search.sources.join(", "))}${cost}${escapeHtml(failed)}</p>`;
+          }
           if (ai.used) {
             status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries · $${ai.cost_usd.toFixed(4)}</p>`;
           } else if (ai.error) {
@@ -1073,7 +1091,7 @@ americanbanker.com</textarea>
         client_name: state.client,
         companies: state.companies,
         priority_sources: state.priority,
-        categories: cats.map(({ name, terms, exclude }) => ({ name, terms, exclude })),
+        categories: cats.map(({ name, terms, exclude, about }) => ({ name, terms, exclude, about })),
         updated_at: new Date().toISOString()
       }, { onConflict: "user_id,client_name" }).select("id").single();
       if (error) { setSavedStatus(`Couldn't save this client: ${error.message}`); return; }
@@ -1097,6 +1115,7 @@ americanbanker.com</textarea>
         row.querySelector(".cat-name").value = c.name || "";
         row.querySelector(".cat-terms").value = c.terms || "";
         row.querySelector(".cat-exclude").value = c.exclude || "";
+        row.querySelector(".cat-about").value = c.about || "";
       });
       $("form-error").hidden = true;
     }

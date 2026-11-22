@@ -214,7 +214,7 @@ class ClaudeStepTests(unittest.TestCase):
         server.call_claude = lambda prompt: (_ for _ in ()).throw(RuntimeError("Claude API error 401"))
         os.environ["ANTHROPIC_API_KEY"] = "test-key"
         try:
-            top, ai = server.fetch_news("story", "", [])
+            top, ai, _search = server.fetch_news("story", "", [])
         finally:
             server.gather_candidates, server.call_claude = saved[0], saved[1]
             if saved[2] is None:
