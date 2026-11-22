@@ -734,6 +734,12 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(502, {"error": f"Couldn't read the PDF ({error})."})
         self.send_json(200, result)
 
+    def end_headers(self):
+        # Make the browser check for a newer copy of every page and script on each load,
+        # so changes show up after a normal refresh instead of an old saved copy.
+        self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def send_config(self):
         """GET /api/config: what the browser needs to talk to Supabase.
         The publishable key is designed to be public; Row Level Security protects the data."""
