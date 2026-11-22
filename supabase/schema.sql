@@ -146,3 +146,68 @@ create policy "Users add their own feedback" on public.feedback
 create policy "Users delete their own feedback" on public.feedback
   for delete to authenticated
   using ((select auth.uid()) = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Write limits (security audit: "a per-visitor rate limit on every route that
+-- writes to your database"). The page writes to these tables directly, so the
+-- database itself refuses new rows past these limits, per account:
+--
+--   table             new rows per hour   rows in total
+--   client_profiles          60                 500
+--   newsletters              60               1,000
+--   feedback                300               5,000
+--
+-- Editing an existing row doesn't count (it adds nothing), and every column
+-- already has a size limit. created_at is always set by the database here, so
+-- a backdated created_at can't be used to slip past the hourly count.
+-- ---------------------------------------------------------------------------
+create or replace function public.enforce_write_limits()
+returns trigger
+language plpgsql
+security invoker            -- runs as the signed-in user, so RLS still applies
+set search_path = ''
+as $$
+declare
+  per_hour  integer;
+  total_max integer;
+  recent    integer;
+  total     integer;
+begin
+  if tg_table_name = 'client_profiles' then per_hour := 60;  total_max := 500;
+  elsif tg_table_name = 'newsletters'  then per_hour := 60;  total_max := 1000;
+  elsif tg_table_name = 'feedback'     then per_hour := 300; total_max := 5000;
+  else return new;
+  end if;
+
+  new.created_at := now();  -- never trust a time sent by the browser
+
+  execute format(
+    'select count(*) filter (where created_at > now() - interval ''1 hour''), count(*)
+       from public.%I where user_id = $1', tg_table_name)
+    into recent, total
+    using new.user_id;
+
+  if recent >= per_hour then
+    raise exception 'Press Pass limit reached: at most % new % per hour. Try again later.',
+      per_hour, replace(tg_table_name, '_', ' ') using errcode = 'P0001';
+  end if;
+  if total >= total_max then
+    raise exception 'Press Pass limit reached: at most % % per account. Delete some old ones first.',
+      total_max, replace(tg_table_name, '_', ' ') using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_write_limits() from public, anon, authenticated;
+
+drop trigger if exists enforce_write_limits on public.client_profiles;
+drop trigger if exists enforce_write_limits on public.newsletters;
+drop trigger if exists enforce_write_limits on public.feedback;
+
+create trigger enforce_write_limits before insert on public.client_profiles
+  for each row execute function public.enforce_write_limits();
+create trigger enforce_write_limits before insert on public.newsletters
+  for each row execute function public.enforce_write_limits();
+create trigger enforce_write_limits before insert on public.feedback
+  for each row execute function public.enforce_write_limits();

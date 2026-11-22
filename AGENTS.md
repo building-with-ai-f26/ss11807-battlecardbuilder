@@ -30,6 +30,8 @@ app/
 supabase/
   schema.sql        Tables (client_profiles, newsletters, feedback) and Row Level Security
                     policies (feedback: read/add/delete own only; no edits).
+                    Write limits per account (trigger enforce_write_limits): 60/60/300 new rows
+                    an hour and 500/1,000/5,000 in total; created_at is set by the database.
                     Run it in the Supabase SQL Editor; safe to re-run.
 docs/
   index.html        Product Page (GitHub Pages): pitch, screenshots, living PRD, build log.
@@ -87,7 +89,7 @@ Stop and ask the human before any of these, even mid-task:
 1. `python3 -m unittest discover tests` passes.
 2. `git status` shows no `.env` and nothing under `app/data/`.
 3. Manual check: sign in with two accounts in two browsers (or a private window); each sees only its own saved clients and past newsletters.
-4. After a schema change: re-run `supabase/schema.sql` in the SQL Editor (ask first), then `python3 tests/live_rls_check.py --server` (add `--site https://<live-host>` for the live site).
+4. Before a schema change: back up first (Supabase → Table Editor → each table → Export → CSV, saved outside the repo; the free plan has no automatic backups). After it: re-run `supabase/schema.sql` in the SQL Editor (ask first), then `python3 tests/live_rls_check.py --server` (add `--site https://<live-host>` for the live site and `--limits` for the write limits).
 
 **Hosting (Render, free plan):**
 - Render runs `python3 app/server.py`. Render sets a `PORT` environment variable; when it's present the server listens on `0.0.0.0` on that port (`listen_address()` in `server.py`). Locally nothing changes: `127.0.0.1:8000`.

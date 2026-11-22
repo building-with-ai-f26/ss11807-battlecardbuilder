@@ -8,6 +8,7 @@ Run from the repo root:
   python3 tests/live_rls_check.py                 # Supabase checks only
   python3 tests/live_rls_check.py --server        # also checks the local server (must be running)
   python3 tests/live_rls_check.py --site https://<live-host>   # also checks the live site
+  python3 tests/live_rls_check.py --limits        # also checks the database write limits (~130 inserts)
 
 It creates two throwaway accounts (presspass-check-...@mailinator.com), signs in as
 each, and tries to read, change and delete the other account's rows. It deletes
@@ -166,6 +167,33 @@ def main():
         status, _ = call("POST", SITE + "/api/pdf", {"not": "a pdf"}, token=token_a)
         check(f"{where} accepts a real sign-in (then rejects the non-PDF, so nothing is spent)", status == 400, f"HTTP {status}")
 
+    if "--limits" in sys.argv:
+        token_c, user_c = new_account("c")
+        print(f"\nWrite limits, with a third test account (...{user_c[-6:]}):")
+        codes = []
+        for i in range(61):
+            status, data = call("POST", rest("newsletters"), {"client_name": "Limit test", "draft_html": f"<p>{i}</p>"}, token_c)
+            codes.append(status)
+            if status == 201:
+                made.append(("newsletters", data[0]["id"], token_c))
+        check("limits: 60 new newsletters in an hour are allowed", codes[:60] == [201] * 60, str(codes[:60]))
+        check("limits: the 61st is refused", codes[60] in (400, 403) and "limit reached" in json.dumps(data).lower(), f"HTTP {codes[60]} {data}")
+        codes = []
+        for i in range(61):
+            status, data = call("POST", rest("client_profiles"), {"client_name": f"Limit test {i}"}, token_c)
+            codes.append(status)
+            if status == 201:
+                made.append(("client_profiles", data[0]["id"], token_c))
+        check("limits: 60 new saved clients are allowed, the 61st is refused",
+              codes[:60] == [201] * 60 and codes[60] in (400, 403), f"{codes[:3]}... last {codes[60]} {data}")
+        status, data = call("POST", rest("feedback"), {"headline": "backdated", "created_at": "2020-01-01T00:00:00Z"}, token_c)
+        stamped = (data[0].get("created_at") or "")[:4] if status == 201 else ""
+        check("limits: a backdated created_at is replaced with the real time", status == 201 and stamped not in ("", "2020"), f"HTTP {status} {data}")
+        if status == 201:
+            made.append(("feedback", data[0]["id"], token_c))
+        status, data = call("PATCH", rest("newsletters", f"?id=eq.{made[-62][1]}"), {"draft_html": "<p>edited</p>"}, token_c)
+        check("limits: editing an existing row still works at the limit", status == 200 and len(data) == 1, f"HTTP {status} {data}")
+
     for table, row_id, token in made:
         if row_id:
             call("DELETE", rest(table, f"?id=eq.{row_id}"), token=token)
@@ -173,7 +201,7 @@ def main():
     check("A can delete A's own rows (cleanup)", status == 200 and data == [], f"HTTP {status} {data}")
 
     print(f"\n{sum(results)}/{len(results)} checks passed.")
-    print("Delete the two presspass-check-... users in Supabase → Authentication → Users.")
+    print("Delete the presspass-check-... test users in Supabase → Authentication → Users.")
     sys.exit(0 if all(results) else 1)
 
 
