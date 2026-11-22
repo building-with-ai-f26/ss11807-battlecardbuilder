@@ -8,7 +8,6 @@ import io
 import json
 import os
 import sys
-import tempfile
 import threading
 import unittest
 import urllib.error
@@ -90,6 +89,9 @@ class ApiRouteTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def setUp(self):
+        server.rate_log.clear()
+
     def fake_verify(self, token):
         return {"token-a": "user-a", "token-b": "user-b"}.get(token)
 
@@ -106,7 +108,6 @@ class ApiRouteTests(unittest.TestCase):
         with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
              mock.patch.object(server, "fetch_news") as fetch_news, mock.patch.object(server, "summarize_pdf") as pdf:
             for path, method, body in [("/api/news?terms=fx", "GET", None),
-                                       ("/api/feedback", "POST", b"{}"),
                                        ("/api/pdf", "POST", b"%PDF-1.4")]:
                 for token in (None, "not-a-real-token"):
                     status, data = self.call(path, method, body, token)
@@ -128,17 +129,40 @@ class ApiRouteTests(unittest.TestCase):
         self.assertEqual(data, {"articles": [], "ai": {"used": False}, "search": {}})
         fetch_news.assert_called_once()
 
-    def test_feedback_is_stamped_with_the_token_owner_not_the_body(self):
-        with tempfile.TemporaryDirectory() as folder:
-            path = os.path.join(folder, "feedback.json")
-            body = json.dumps({"headline": "x", "user_id": "user-b"}).encode()
-            with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
-                 mock.patch.object(server, "FEEDBACK_FILE", path):
-                status, _ = self.call("/api/feedback", "POST", body, token="token-a")
-                with open(path, encoding="utf-8") as f:
-                    saved = json.load(f)
-        self.assertEqual(status, 200)
-        self.assertEqual(saved[0]["user_id"], "user-a")
+    def test_old_feedback_route_is_gone(self):
+        # Feedback now goes straight from the page into Supabase (RLS-protected table).
+        with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify):
+            status, _ = self.call("/api/feedback", "POST", b"{}", token="token-a")
+        self.assertEqual(status, 404)
+
+    def test_paid_routes_are_rate_limited_per_user(self):
+        limits = {"news": (2, 3600), "pdf": (1, 3600)}
+        with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
+             mock.patch.dict(server.RATE_LIMITS, limits), \
+             mock.patch.object(server, "fetch_news", return_value=([], {"used": False}, {})) as fetch_news, \
+             mock.patch.object(server, "summarize_pdf", return_value={"headline": "h", "source": "", "summary": "s", "cost_usd": 0}), \
+             mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test"}):
+            news = [self.call("/api/news?terms=fx", token="token-a")[0] for _ in range(3)]
+            other_user = self.call("/api/news?terms=fx", token="token-b")[0]
+            pdf = [self.call("/api/pdf", "POST", b"%PDF-1.4", token="token-a")[0] for _ in range(2)]
+            status, data = self.call("/api/news?terms=fx", token="token-a")
+        self.assertEqual(news, [200, 200, 429])
+        self.assertEqual(other_user, 200)          # limits are per user
+        self.assertEqual(pdf, [200, 429])
+        self.assertIn("Limit reached", data["error"])
+        self.assertEqual(fetch_news.call_count, 3)  # 2 for A + 1 for B; refused requests spend nothing
+
+
+class RateLimitTests(unittest.TestCase):
+    def setUp(self):
+        server.rate_log.clear()
+
+    def test_allows_up_to_the_limit_then_waits_for_the_window(self):
+        with mock.patch.dict(server.RATE_LIMITS, {"news": (2, 100)}):
+            self.assertEqual(server.check_rate_limit("u", "news", now=0), 0)
+            self.assertEqual(server.check_rate_limit("u", "news", now=10), 0)
+            self.assertEqual(server.check_rate_limit("u", "news", now=20), 81)   # oldest frees up at t=100
+            self.assertEqual(server.check_rate_limit("u", "news", now=101), 0)   # window has moved on
 
 
 if __name__ == "__main__":

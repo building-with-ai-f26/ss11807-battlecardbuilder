@@ -1,0 +1,3 @@
+# Press Pass uses only Python's standard library: there are no packages to install.
+# This file exists so hosts such as Render can run their usual
+# `pip install -r requirements.txt` build step, which installs nothing.

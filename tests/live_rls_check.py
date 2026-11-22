@@ -7,11 +7,13 @@ Not part of `python3 -m unittest discover tests` (it uses the internet and makes
 Run from the repo root:
   python3 tests/live_rls_check.py                 # Supabase checks only
   python3 tests/live_rls_check.py --server        # also checks the local server (must be running)
+  python3 tests/live_rls_check.py --site https://<live-host>   # also checks the live site
 
 It creates two throwaway accounts (presspass-check-...@mailinator.com), signs in as
 each, and tries to read, change and delete the other account's rows. It deletes
 the rows it made at the end; delete the two test users afterwards in the dashboard
-(Authentication → Users). No Claude or GNews calls are made. Keys are never printed.
+(Authentication → Users). No Claude, Exa or NYT calls are made (the server check sends
+a file that isn't a PDF, which is refused before Claude is called). Keys are never printed.
 """
 
 import json
@@ -28,6 +30,7 @@ server.load_env()
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
 LOCAL = "http://localhost:8000"
+SITE = sys.argv[sys.argv.index("--site") + 1].rstrip("/") if "--site" in sys.argv else (LOCAL if "--server" in sys.argv else "")
 results = []
 
 
@@ -132,16 +135,40 @@ def main():
         status, data = call("PATCH", rest(table, f"?id=eq.{a_id}"), {"client_name": "Client A edited"}, token_a)
         check(f"{table}: A can edit A's own row", status == 200 and len(data) == 1, f"HTTP {status} {data}")
 
-    if "--server" in sys.argv:
-        status, _ = call("POST", LOCAL + "/api/feedback", {"headline": "live check"})
-        check("local server refuses feedback without a sign-in", status == 401, f"HTTP {status}")
-        status, _ = call("POST", LOCAL + "/api/feedback", {"headline": "live check"}, token="not-a-token")
-        check("local server refuses a fake token", status == 401, f"HTTP {status}")
-        status, _ = call("POST", LOCAL + "/api/feedback", {"headline": "live check (safe to delete)"}, token=token_a)
-        check("local server accepts a real sign-in", status == 200, f"HTTP {status}")
+    # Feedback notes: read, add and delete own only; nobody may edit them.
+    status, data = call("POST", rest("feedback"), {"client_name": "Client A", "headline": "A's note", "reasons": ["Off-topic"]}, token_a)
+    check("feedback: A can save a note", status == 201, f"HTTP {status} {data}")
+    fa = data[0] if status == 201 else {}
+    status, data = call("POST", rest("feedback"), {"client_name": "Client B", "headline": "B's note"}, token_b)
+    check("feedback: B can save a note", status == 201, f"HTTP {status} {data}")
+    fb = data[0] if status == 201 else {}
+    made += [("feedback", fa.get("id"), token_a), ("feedback", fb.get("id"), token_b)]
+    check("feedback: database filled in user_id (A)", fa.get("user_id") == user_a)
+    status, data = call("GET", rest("feedback", "?select=id,user_id"), token=token_a)
+    check("feedback: A sees only A's notes", status == 200 and [r["id"] for r in data] == [fa.get("id")], f"HTTP {status} {data}")
+    status, data = call("POST", rest("feedback"), {"headline": "planted", "user_id": user_b}, token_a)
+    check("feedback: A can't add a note owned by B", status in (401, 403), f"HTTP {status} {data}")
+    status, data = call("DELETE", rest("feedback", f"?id=eq.{fb.get('id')}"), token=token_a)
+    check("feedback: A can't delete B's note", status == 200 and data == [], f"HTTP {status} {data}")
+    status, data = call("PATCH", rest("feedback", f"?id=eq.{fa.get('id')}"), {"note": "edited"}, token_a)
+    check("feedback: nobody can edit a note, even their own", status in (401, 403), f"HTTP {status} {data}")
+    status, data = call("GET", rest("feedback", "?select=id"))
+    check("feedback: a signed-out visitor sees no notes", status in (401, 403) or data == [], f"HTTP {status} {data}")
+
+    if SITE:
+        where = "live site" if SITE != LOCAL else "local server"
+        status, _ = call("POST", SITE + "/api/pdf", {"not": "a pdf"})
+        check(f"{where} refuses the paid PDF route without a sign-in", status == 401, f"HTTP {status}")
+        status, _ = call("POST", SITE + "/api/pdf", {"not": "a pdf"}, token="not-a-token")
+        check(f"{where} refuses a fake token", status == 401, f"HTTP {status}")
+        status, _ = call("GET", SITE + "/api/news?terms=test")
+        check(f"{where} refuses the paid news route without a sign-in", status == 401, f"HTTP {status}")
+        status, _ = call("POST", SITE + "/api/pdf", {"not": "a pdf"}, token=token_a)
+        check(f"{where} accepts a real sign-in (then rejects the non-PDF, so nothing is spent)", status == 400, f"HTTP {status}")
 
     for table, row_id, token in made:
-        call("DELETE", rest(table, f"?id=eq.{row_id}"), token=token)
+        if row_id:
+            call("DELETE", rest(table, f"?id=eq.{row_id}"), token=token)
     status, data = call("GET", rest("newsletters", "?select=id"), token=token_a)
     check("A can delete A's own rows (cleanup)", status == 200 and data == [], f"HTTP {status} {data}")
 

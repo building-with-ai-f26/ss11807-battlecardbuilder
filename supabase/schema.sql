@@ -97,3 +97,52 @@ create policy "Users edit their own newsletters" on public.newsletters
 create policy "Users delete their own newsletters" on public.newsletters
   for delete to authenticated
   using ((select auth.uid()) = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Feedback notes: why the user removed an article (added in Phase 3, when the
+-- app moved to Render, whose disk is wiped on every restart). Later used to
+-- show Claude what this user doesn't want.
+-- Notes are never edited, so there is no update policy (and no update grant).
+-- ---------------------------------------------------------------------------
+create table if not exists public.feedback (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  client_name     text not null default '' check (char_length(client_name) <= 200),
+  category        text not null default '' check (char_length(category) <= 200),
+  headline        text not null default '' check (char_length(headline) <= 1000),
+  source          text not null default '' check (char_length(source) <= 300),
+  domain          text not null default '' check (char_length(domain) <= 300),
+  url             text not null default '' check (char_length(url) <= 3000),
+  priority_source boolean not null default false,
+  manual          boolean not null default false,
+  filter_reason   text not null default '' check (char_length(filter_reason) <= 300),
+  ai_relevance    numeric,
+  ai_relevance_parts jsonb,
+  reasons         text[] not null default '{}',     -- quick picks such as "Off-topic"
+  note            text not null default '' check (char_length(note) <= 2000),
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists feedback_user_created_idx on public.feedback (user_id, created_at desc);
+
+revoke all on public.feedback from anon;
+revoke all on public.feedback from authenticated;
+grant select, insert, delete on public.feedback to authenticated;
+
+alter table public.feedback enable row level security;
+
+drop policy if exists "Users read their own feedback"   on public.feedback;
+drop policy if exists "Users add their own feedback"    on public.feedback;
+drop policy if exists "Users delete their own feedback" on public.feedback;
+
+create policy "Users read their own feedback" on public.feedback
+  for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Users add their own feedback" on public.feedback
+  for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users delete their own feedback" on public.feedback
+  for delete to authenticated
+  using ((select auth.uid()) = user_id);

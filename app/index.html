@@ -742,27 +742,24 @@ americanbanker.com</textarea>
     async function saveFeedback(article) {
       const fb = article.feedback;
       try {
-        const response = await PressPassAuth.apiFetch("/api/feedback", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            client: state.client,
-            category: article.category,
-            headline: article.headline,
-            source: article.source,
-            domain: article.domain,
-            priority_source: article.priority,
-            manual: Boolean(article.manual),
-            filter_reason: article.filterReason || "",
-            ai_relevance: article.relevance ?? null,
-            ai_relevance_parts: article.relevance_parts || null,
-            url: article.url,
-            reasons: fb.reasons,
-            note: fb.note.trim()
-          })
+        // Saved to the Supabase feedback table; user_id is filled in by the database
+        // and Row Level Security keeps each user's notes private.
+        const { error } = await db.from("feedback").insert({
+          client_name: state.client.slice(0, 200),
+          category: (article.category || "").slice(0, 200),
+          headline: (article.headline || "").slice(0, 1000),
+          source: (article.source || "").slice(0, 300),
+          domain: (article.domain || "").slice(0, 300),
+          url: (article.url || "").slice(0, 3000),
+          priority_source: Boolean(article.priority),
+          manual: Boolean(article.manual),
+          filter_reason: (article.filterReason || "").slice(0, 300),
+          ai_relevance: article.relevance ?? null,
+          ai_relevance_parts: article.relevance_parts || null,
+          reasons: fb.reasons,
+          note: fb.note.trim().slice(0, 2000)
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+        if (error) throw new Error(error.message);
         article.feedbackOpen = false;
         article.feedbackSaved = true;
         fb.error = "";

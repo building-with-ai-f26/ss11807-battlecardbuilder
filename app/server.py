@@ -4,21 +4,22 @@ Serves the files in app/ and adds these routes. All but /api/config need a
 signed-in user: the browser sends its Supabase access token in an
 "Authorization: Bearer ..." header and the server checks it with Supabase.
   GET  /api/config    the Supabase URL and publishable key for the browser
-  GET  /api/news      gathers this week's articles for one category from
-                      three kinds of sources and removes duplicates:
-                        1. Google News RSS search (no key needed)
-                        2. Publisher RSS feeds listed in app/feeds.json (no key)
-                        3. GNews API search (only if GNEWS_API_KEY is set)
+  GET  /api/news      gathers this week's articles for one category and removes
+                      duplicates. Sources: Exa (main, if EXA_API_KEY is set),
+                      NYT Article Search (if NYT_API_KEY), publisher RSS feeds in
+                      app/feeds.json; without Exa, Google News RSS and GNews.
                       Then Claude (Haiku 5.5, only if ANTHROPIC_API_KEY is set)
                       scores each article's relevance 0-10 and writes a short
-                      summary. Returns the top 5 plus the AI cost as JSON.
-                      Without a key: priority sources first, then newest.
-  POST /api/feedback  appends one removal note to app/data/feedback.json
+                      summary. Returns the top 5 plus the search and AI costs.
+                      Without a Claude key: priority sources first, then newest.
   POST /api/pdf       sends an uploaded PDF of a paywalled article to Claude and
                       returns its headline, source and summary (never saved)
+Both paid routes have a per-user hourly limit (RATE_LIMITS). Feedback notes are
+saved by the page directly into Supabase, protected by Row Level Security.
 
-Uses only the Python standard library. API keys are read from a .env file in
-the repo root (see .env.example); it is never committed.
+Uses only the Python standard library. API keys are read from environment
+variables: a .env file in the repo root locally (never committed), or the
+host's settings (e.g. Render). On a host that sets PORT it listens on 0.0.0.0.
 
 Run from the repo root:  python3 app/server.py
 Then open:               http://localhost:8000
@@ -40,11 +41,10 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-PORT = 8000
+PORT = 8000  # local default; a host such as Render sets its own PORT (see listen_address)
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(APP_DIR, "..", ".env")
 FEEDS_FILE = os.path.join(APP_DIR, "feeds.json")
-FEEDBACK_FILE = os.path.join(APP_DIR, "data", "feedback.json")
 MAX_ARTICLES = 5
 # Google returns ~100 loosely matching results in relevance order. Only the most
 # relevant few from each search are ranked, so "newest" can't promote weak matches.
@@ -61,11 +61,16 @@ OUTLETS_FILE = os.path.join(APP_DIR, "outlets.json")
 
 AUTH_CACHE_SECONDS = 60   # a checked sign-in token is trusted for up to a minute
 
-feedback_lock = threading.Lock()
 feed_cache_lock = threading.Lock()
 feed_cache = {"fetched_at": 0.0, "articles": []}
 auth_cache_lock = threading.Lock()
 auth_cache = {}  # token -> (user_id, checked_at)
+
+# Per-user limits on the routes that spend money (Exa, NYT, Claude): (requests, seconds).
+# A 3-category newsletter uses 3 news requests, so 30 an hour is about 10 newsletters.
+RATE_LIMITS = {"news": (30, 3600), "pdf": (10, 3600)}
+rate_lock = threading.Lock()
+rate_log = {}  # (user_id, route) -> times of recent requests (kept in memory; resets on restart)
 
 
 # ---------------------------------------------------------------------------
@@ -801,6 +806,33 @@ def gather_candidates(terms, exclude, priority_sites, about="", search=None, cat
 # each API call. The server asks Supabase who the token belongs to, using only
 # the publishable key (no secret key is needed or used).
 # ---------------------------------------------------------------------------
+def listen_address(env=None):
+    """Where the server listens: (host, port).
+
+    On your Mac: 127.0.0.1:8000, so only your own computer can reach it.
+    On a host such as Render, which sets a PORT environment variable: 0.0.0.0 on that
+    port, so the host can pass visitors' requests in. HOST overrides the address.
+    """
+    env = os.environ if env is None else env
+    port = env.get("PORT", "").strip()
+    host = env.get("HOST", "").strip() or ("0.0.0.0" if port else "127.0.0.1")
+    return host, int(port) if port else PORT
+
+
+def check_rate_limit(user_id, route, now=None):
+    """Record one request; return 0 if allowed, else the seconds until the next one is allowed."""
+    limit, window = RATE_LIMITS[route]
+    now = time.time() if now is None else now
+    with rate_lock:
+        recent = [t for t in rate_log.get((user_id, route), []) if now - t < window]
+        if len(recent) >= limit:
+            rate_log[(user_id, route)] = recent
+            return int(window - (now - recent[0])) + 1
+        recent.append(now)
+        rate_log[(user_id, route)] = recent
+        return 0
+
+
 def supabase_settings():
     """(url, publishable_key) from the environment; empty strings if not set."""
     url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
@@ -836,19 +868,6 @@ def verify_user(token, timeout=10):
     return user_id
 
 
-def save_feedback(entry):
-    """Append one feedback entry to app/data/feedback.json."""
-    with feedback_lock:
-        os.makedirs(os.path.dirname(FEEDBACK_FILE), exist_ok=True)
-        entries = []
-        if os.path.exists(FEEDBACK_FILE):
-            with open(FEEDBACK_FILE, encoding="utf-8") as f:
-                entries = json.load(f)
-        entries.append(entry)
-        with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2)
-
-
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=APP_DIR, **kwargs)
@@ -856,12 +875,13 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/data/"):
-            return self.send_json(404, {"error": "Not found."})  # keep feedback notes off the web page
+            return self.send_json(404, {"error": "Not found."})  # old local feedback notes stay off the web
         if parsed.path == "/api/config":
             return self.send_config()
         if parsed.path != "/api/news":
             return super().do_GET()
-        if not self.signed_in_user():
+        user_id = self.signed_in_user()
+        if not user_id or self.over_rate_limit(user_id, "news"):
             return
 
         params = urllib.parse.parse_qs(parsed.query)
@@ -881,28 +901,31 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
 
     def do_POST(self):
-        if self.path not in ("/api/pdf", "/api/feedback"):
+        # Feedback notes are saved by the page straight into Supabase (the feedback table),
+        # so the only POST route left is the PDF reader.
+        if self.path != "/api/pdf":
             return self.send_json(404, {"error": "Not found."})
         user_id = self.signed_in_user()
-        if not user_id:
+        if not user_id or self.over_rate_limit(user_id, "pdf"):
             return
-        if self.path == "/api/pdf":
-            return self.read_pdf()
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            entry = json.loads(self.rfile.read(min(length, 20000)))
-            if not isinstance(entry, dict):
-                raise ValueError("Feedback must be a JSON object.")
-        except (ValueError, json.JSONDecodeError):
-            return self.send_json(400, {"error": "Invalid feedback."})
+        return self.read_pdf()
 
-        entry["user_id"] = user_id  # from the checked token, never from the request body
-        entry["saved_at"] = datetime.now(timezone.utc).isoformat()
-        try:
-            save_feedback(entry)
-        except (OSError, ValueError) as error:
-            return self.send_json(500, {"error": f"Could not save feedback ({error.__class__.__name__})."})
-        self.send_json(200, {"ok": True})
+    def over_rate_limit(self, user_id, route):
+        """Send a 429 and return True if this user has hit the route's hourly limit."""
+        wait = check_rate_limit(user_id, route)
+        if not wait:
+            return False
+        limit, window = RATE_LIMITS[route]
+        minutes = max(1, round(wait / 60))
+        self.send_response(429)
+        body = json.dumps({"error": f"Limit reached: {limit} {'searches' if route == 'news' else 'PDF reads'} "
+                                    f"per hour. Try again in about {minutes} minute{'s' if minutes != 1 else ''}."}).encode()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Retry-After", str(wait))
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        return True
 
     def read_pdf(self):
         """POST /api/pdf: the raw PDF bytes in the body. Returns headline, source and summary."""
@@ -963,8 +986,12 @@ if __name__ == "__main__":
         print("GNews:", "on" if os.environ.get("GNEWS_API_KEY") else "off (add GNEWS_API_KEY to .env to turn it on)")
     print("Claude scoring:", f"on ({CLAUDE_MODEL})" if os.environ.get("ANTHROPIC_API_KEY") else "off (add ANTHROPIC_API_KEY to .env to turn it on)")
     print("Sign-in:", "on (Supabase)" if all(supabase_settings()) else "NOT SET UP (add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env; the app won't work without them)")
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"Press Pass running at http://localhost:{PORT}  (press Ctrl+C to stop)")
+    host, port = listen_address()
+    server = ThreadingHTTPServer((host, port), Handler)
+    if host == "127.0.0.1":
+        print(f"Press Pass running at http://localhost:{port}  (press Ctrl+C to stop)")
+    else:
+        print(f"Press Pass listening on {host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
