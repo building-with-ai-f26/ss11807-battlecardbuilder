@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in · Press Pass</title>
+
+  <!-- PostHog analytics (public project token; records pageviews, clicks, and session replays) -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="Eh Rh Ph Oh Lh qh init yd bd dd fd Sd wc md xd ad Ed Ad Rd Pd Od Fd capture getExtension gr pd gd calculateEventProperties Ld register register_once register_for_session unregister unregister_for_session zd hd jd getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys onActiveMatchingSurveysChanged renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Hd identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Ud shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty qd Td createPersonProfile setInternalOrTestUser Bd Uh zh opt_in_capturing opt_out_capturing Hh has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing $d debug kc Ls getPageViewId captureTraceFeedback captureTraceMetric rd".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_rJbfGrAeKNgVL9Q4gcuALSzMWys2zqEQtAwSnmdizEk5', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
+        person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
+    })
+  </script>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #1d63dc;
+      --remove: #b91c1c;
+      --keep: #15803d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 420px; margin: 0 auto; padding: 56px 16px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
+    h2 { font-size: 18px; margin: 0 0 16px; }
+    label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 9px 11px; font-size: 15px;
+      border: 1px solid var(--border); border-radius: 6px; font-family: inherit;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+    button {
+      font: inherit; font-size: 15px; padding: 9px 16px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--border); background: #fff;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; margin-top: 20px; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    button.link { border: none; background: none; color: var(--accent); padding: 0; text-decoration: underline; font-size: 14px; }
+    .switch { margin: 16px 0 0; font-size: 14px; color: var(--muted); text-align: center; }
+    .message { margin: 14px 0 0; font-size: 14px; }
+    .message.error { color: var(--remove); }
+    .message.ok { color: var(--keep); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Press Pass</h1>
+    <p class="sub">Build a weekly news roundup for a PR client. Sign in to save your client setups and past newsletters.</p>
+
+    <section class="card">
+      <h2 id="form-title">Sign in</h2>
+      <form id="auth-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" required />
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" minlength="6" required />
+        <p class="hint" id="password-hint" hidden>At least 6 characters.</p>
+        <button type="submit" class="primary" id="submit">Sign in</button>
+        <p class="message" id="message" hidden></p>
+      </form>
+      <p class="switch">
+        <span id="switch-text">New here?</span>
+        <button type="button" class="link" id="switch-mode">Create an account</button>
+      </p>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/auth.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let mode = "signin"; // or "signup"
+
+    function track(event, props = {}) {
+      try { if (window.posthog) posthog.capture(event, props); } catch (e) { /* analytics must never break the app */ }
+    }
+
+    function showMessage(text, kind = "error") {
+      $("message").textContent = text;
+      $("message").className = `message ${kind}`;
+      $("message").hidden = !text;
+    }
+
+    function setMode(next) {
+      mode = next;
+      const signup = mode === "signup";
+      $("form-title").textContent = signup ? "Create an account" : "Sign in";
+      $("submit").textContent = signup ? "Create account" : "Sign in";
+      $("switch-text").textContent = signup ? "Already have an account?" : "New here?";
+      $("switch-mode").textContent = signup ? "Sign in" : "Create an account";
+      $("password").autocomplete = signup ? "new-password" : "current-password";
+      $("password-hint").hidden = !signup;
+      showMessage("");
+    }
+
+    $("switch-mode").addEventListener("click", () => setMode(mode === "signin" ? "signup" : "signin"));
+
+    // Already signed in? Go straight to the app.
+    PressPassAuth.getClient().then(async (client) => {
+      if (!client) {
+        showMessage("Sign-in isn't set up yet: add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env and restart the server.");
+        $("submit").disabled = true;
+        return;
+      }
+      const { data } = await client.auth.getSession();
+      if (data.session) location.replace("/");
+    });
+
+    $("auth-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const client = await PressPassAuth.getClient();
+      if (!client) return;
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      $("submit").disabled = true;
+      showMessage("");
+      try {
+        const { data, error } = mode === "signup"
+          ? await client.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + "/signin.html" } })
+          : await client.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (!data.session) {
+          // "Confirm email" is on in Supabase: the account works after the link is clicked.
+          setMode("signin");
+          showMessage("Check your email for a confirmation link, then sign in.", "ok");
+          return;
+        }
+        PressPassAuth.identify(data.session.user);
+        track(mode === "signup" ? "signed_up" : "signed_in");
+        location.replace("/");
+      } catch (err) {
+        showMessage(err.message || "Something went wrong. Please try again.");
+      } finally {
+        $("submit").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

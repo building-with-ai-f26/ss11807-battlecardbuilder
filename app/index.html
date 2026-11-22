@@ -181,13 +181,38 @@
     #draft .dg-summary:empty::before { content: attr(data-placeholder); color: #9ca3af; font-style: italic; }
     .copied { color: var(--keep); font-size: 14px; font-weight: 600; }
     .copy-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    /* Sign-in: hide the app until we know who is signed in */
+    body.auth-pending .container { visibility: hidden; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .account { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+
+    /* Saved clients and past newsletters */
+    .saved-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .saved-row select { flex: 1; min-width: 200px; margin: 0; }
+    .saved-status { font-size: 13px; color: var(--muted); }
+    .history-list { list-style: none; margin: 0; padding: 0; }
+    .history-list li {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px;
+    }
+    .history-list li:first-child { border-top: none; }
+    .history-meta { color: var(--muted); font-size: 13px; }
+    .history-buttons { display: flex; gap: 6px; }
   </style>
 </head>
-<body>
+<body class="auth-pending">
   <div class="container">
-    <header>
-      <h1>Client News Digest <span class="badge">Prototype</span></h1>
-      <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
+    <header class="header-row">
+      <div>
+        <h1>Client News Digest <span class="badge">Prototype</span></h1>
+        <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
+      </div>
+      <div class="account">
+        <!-- ph-no-capture keeps the email out of PostHog session replays -->
+        <span id="account-email" class="ph-no-capture"></span>
+        <button type="button" class="small" id="sign-out">Sign out</button>
+      </div>
     </header>
 
     <p class="ai-disclaimer">
@@ -211,6 +236,12 @@
     <!-- STEP 1: client, priority sources, categories -->
     <section class="card" id="step-1">
       <h2>Who is this digest for?</h2>
+      <label for="saved-clients">Saved clients <span class="optional">(saved each time you click Find articles)</span></label>
+      <div class="saved-row">
+        <select id="saved-clients"><option value="">New client</option></select>
+        <button type="button" class="small" id="delete-client" disabled>Delete saved setup</button>
+        <span class="saved-status" id="saved-status"></span>
+      </div>
       <form id="setup-form">
         <label for="client">Client name</label>
         <input type="text" id="client" placeholder="e.g., Acme Payments" />
@@ -246,6 +277,13 @@ americanbanker.com</textarea>
           <button type="submit" class="primary">Find articles →</button>
         </div>
       </form>
+    </section>
+
+    <!-- Past newsletters (shown on step 1) -->
+    <section class="card" id="history">
+      <h2>Past newsletters</h2>
+      <p class="hint" style="margin-top:-8px">A newsletter is saved here when you copy its draft in step 3. Only you can see yours.</p>
+      <ul class="history-list" id="history-list"></ul>
     </section>
 
     <!-- STEP 2: review articles -->
@@ -298,7 +336,7 @@ americanbanker.com</textarea>
       <h2>Newsletter draft</h2>
       <p class="sub" style="margin-bottom:12px">
         Click anywhere to edit the text. Hover an article to move (↑ ↓) or delete (✕) it.
-        Review before sending to the client.
+        Review before sending to the client. Copying saves the newsletter to Past newsletters.
       </p>
       <div id="draft" contenteditable="true" spellcheck="true"></div>
       <div class="actions">
@@ -312,6 +350,8 @@ americanbanker.com</textarea>
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/auth.js"></script>
   <script>
     const MIN_CATEGORIES = 3;
     const MAX_CATEGORIES = 8;
@@ -409,6 +449,8 @@ americanbanker.com</textarea>
         ind.classList.toggle("active", i === n);
         ind.classList.toggle("done", i < n);
       });
+      $("history").hidden = n !== 1;
+      if (n === 1 && db) renderHistory();
       window.scrollTo(0, 0);
     }
 
@@ -495,6 +537,9 @@ americanbanker.com</textarea>
       state.priority = [...new Set(domains)];
       track("search_started", { categories: cats.length, priority_sources: new Set(domains).size, companies_to_watch: state.companies.length });
       state.categories = cats.map((c) => ({ ...c, status: "loading", error: "", showFiltered: false }));
+      saveClientSetup(cats);
+      currentNewsletterId = null; // a new search starts a new newsletter
+      viewingSaved = false;
 
       // A new search replaces fetched articles; manual ones stay.
       for (const id of Object.keys(state.articles)) {
@@ -518,7 +563,7 @@ americanbanker.com</textarea>
         companies: state.companies.join(",")
       });
       try {
-        const response = await fetch(`/api/news?${params}`);
+        const response = await PressPassAuth.apiFetch(`/api/news?${params}`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
         data.articles.forEach((a) => {
@@ -678,7 +723,7 @@ americanbanker.com</textarea>
     async function saveFeedback(article) {
       const fb = article.feedback;
       try {
-        const response = await fetch("/api/feedback", {
+        const response = await PressPassAuth.apiFetch("/api/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -808,7 +853,7 @@ americanbanker.com</textarea>
       button.disabled = true;
       status.textContent = "Reading the PDF… (about 10–20 seconds)";
       try {
-        const response = await fetch("/api/pdf", {
+        const response = await PressPassAuth.apiFetch("/api/pdf", {
           method: "POST",
           headers: { "Content-Type": "application/pdf" },
           body: file
@@ -894,7 +939,10 @@ americanbanker.com</textarea>
       showStep(3);
     });
 
-    $("back-to-2").addEventListener("click", () => showStep(2));
+    // A past newsletter opened from the list has no review step to go back to.
+    $("back-to-2").addEventListener("click", () => {
+      showStep(viewingSaved ? 1 : 2);
+    });
 
     $("draft").addEventListener("input", () => { draftEdited = true; });
 
@@ -975,6 +1023,7 @@ americanbanker.com</textarea>
         });
       }
       flashCopied("Copied! Paste into Gmail or Outlook.");
+      saveNewsletter();
     });
 
     $("copy-text").addEventListener("click", async () => {
@@ -988,9 +1037,171 @@ americanbanker.com</textarea>
         withOffscreen(area, () => { area.select(); document.execCommand("copy"); });
       }
       flashCopied("Plain text copied.");
+      saveNewsletter();
     });
 
+    // ---------------------------------------------------------------
+    // Saved data (Supabase). Rows are read and written straight from the
+    // browser with the signed-in user's session. Row Level Security in
+    // supabase/schema.sql makes sure each user only ever gets their own rows;
+    // user_id is filled in by the database, so it is never sent from here.
+    // ---------------------------------------------------------------
+    let db = null;                 // Supabase client, set once signed in
+    let savedClients = [];         // this user's client_profiles rows
+    let currentNewsletterId = null; // row id once this draft has been saved
+    let viewingSaved = false;      // step 3 is showing a past newsletter
+
+    function setSavedStatus(text) { $("saved-status").textContent = text; }
+
+    async function loadSavedClients() {
+      const { data, error } = await db.from("client_profiles")
+        .select("id, client_name, companies, priority_sources, categories")
+        .order("client_name");
+      if (error) { setSavedStatus(`Couldn't load saved clients: ${error.message}`); return; }
+      savedClients = data;
+      const selected = $("saved-clients").value;
+      $("saved-clients").innerHTML = `<option value="">New client</option>` +
+        data.map((c) => `<option value="${c.id}">${escapeHtml(c.client_name)}</option>`).join("");
+      if (data.some((c) => c.id === selected)) $("saved-clients").value = selected;
+      $("delete-client").disabled = !$("saved-clients").value;
+    }
+
+    // Upsert: one saved setup per client name, replaced on each search.
+    async function saveClientSetup(cats) {
+      const { data, error } = await db.from("client_profiles").upsert({
+        client_name: state.client,
+        companies: state.companies,
+        priority_sources: state.priority,
+        categories: cats.map(({ name, terms, exclude }) => ({ name, terms, exclude })),
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,client_name" }).select("id").single();
+      if (error) { setSavedStatus(`Couldn't save this client: ${error.message}`); return; }
+      track("client_saved", { categories: cats.length });
+      await loadSavedClients();
+      $("saved-clients").value = data.id;
+      $("delete-client").disabled = false;
+      setSavedStatus("Saved.");
+    }
+
+    // Fill step 1 from a saved setup (or clear it for a new client).
+    function fillSetup(profile) {
+      $("client").value = profile ? profile.client_name : "";
+      $("companies").value = profile ? profile.companies.join(", ") : "";
+      if (profile) $("priority-sources").value = profile.priority_sources.join("\n");
+      const cats = profile ? profile.categories : [];
+      $("category-list").innerHTML = "";
+      for (let i = 0; i < Math.max(MIN_CATEGORIES, cats.length); i++) addCategoryInput();
+      [...document.querySelectorAll(".category-row")].forEach((row, i) => {
+        const c = cats[i] || {};
+        row.querySelector(".cat-name").value = c.name || "";
+        row.querySelector(".cat-terms").value = c.terms || "";
+        row.querySelector(".cat-exclude").value = c.exclude || "";
+      });
+      $("form-error").hidden = true;
+    }
+
+    $("saved-clients").addEventListener("change", () => {
+      const profile = savedClients.find((c) => c.id === $("saved-clients").value);
+      fillSetup(profile);
+      $("delete-client").disabled = !profile;
+      setSavedStatus("");
+      if (profile) track("client_loaded", { categories: profile.categories.length });
+    });
+
+    $("delete-client").addEventListener("click", async () => {
+      const profile = savedClients.find((c) => c.id === $("saved-clients").value);
+      if (!profile || !confirm(`Delete the saved setup for ${profile.client_name}? Past newsletters are kept.`)) return;
+      const { error } = await db.from("client_profiles").delete().eq("id", profile.id);
+      if (error) { setSavedStatus(`Couldn't delete: ${error.message}`); return; }
+      $("saved-clients").value = "";
+      await loadSavedClients();
+      setSavedStatus("Deleted.");
+    });
+
+    // Save the draft when it is copied. Copying again updates the same row.
+    async function saveNewsletter() {
+      const included = state.order.map((id) => state.articles[id]).filter((a) => a && a.status === "included");
+      const row = {
+        client_name: state.client,
+        categories: state.categories.map((c) => c.name),
+        articles: included.map((a) => ({
+          category: a.category, headline: a.headline, url: a.url, source: a.source,
+          date: a.date || null, summary: a.summary || "", relevance: a.relevance ?? null, manual: !!a.manual
+        })),
+        draft_html: $("draft").innerHTML,
+        ai_cost_usd: state.categories.reduce((sum, c) => sum + ((c.ai && c.ai.cost_usd) || 0), 0),
+        updated_at: new Date().toISOString()
+      };
+      if (viewingSaved) { delete row.articles; delete row.ai_cost_usd; } // keep what the original search found
+      const query = currentNewsletterId
+        ? db.from("newsletters").update(row).eq("id", currentNewsletterId)
+        : db.from("newsletters").insert(row);
+      const { data, error } = await query.select("id").single();
+      if (error) { flashCopied(`Copied, but couldn't save to Past newsletters: ${error.message}`); return; }
+      if (!currentNewsletterId) track("newsletter_saved", { articles: included.length });
+      currentNewsletterId = data.id;
+    }
+
+    async function renderHistory() {
+      const list = $("history-list");
+      const { data, error } = await db.from("newsletters")
+        .select("id, client_name, categories, articles, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) { list.innerHTML = `<li class="error">Couldn't load past newsletters: ${escapeHtml(error.message)}</li>`; return; }
+      list.innerHTML = data.length ? data.map((n) => `
+        <li>
+          <div>
+            <strong>${escapeHtml(n.client_name)}</strong>
+            <div class="history-meta">${escapeHtml(formatDate(n.created_at))} · ${n.articles.length} article${n.articles.length === 1 ? "" : "s"} · ${escapeHtml(n.categories.join(", "))}</div>
+          </div>
+          <div class="history-buttons">
+            <button type="button" class="small" data-history="open" data-id="${n.id}">Open</button>
+            <button type="button" class="small" data-history="delete" data-id="${n.id}">Delete</button>
+          </div>
+        </li>`).join("") : `<li class="history-meta">No newsletters yet.</li>`;
+    }
+
+    $("history-list").addEventListener("click", async (event) => {
+      const btn = event.target.closest("button[data-history]");
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (btn.dataset.history === "delete") {
+        if (!confirm("Delete this newsletter? This can't be undone.")) return;
+        const { error } = await db.from("newsletters").delete().eq("id", id);
+        if (error) alert(`Couldn't delete: ${error.message}`);
+        return renderHistory();
+      }
+      const { data, error } = await db.from("newsletters").select("id, client_name, categories, draft_html").eq("id", id).single();
+      if (error) { alert(`Couldn't open it: ${error.message}`); return; }
+      state.client = data.client_name;
+      state.categories = data.categories.map((name) => ({ name }));
+      $("draft").innerHTML = data.draft_html;
+      draftEdited = true;
+      currentNewsletterId = data.id;
+      viewingSaved = true;
+      $("copied").hidden = true;
+      track("newsletter_opened");
+      showStep(3);
+    });
+
+    $("sign-out").addEventListener("click", () => {
+      track("signed_out");
+      PressPassAuth.signOut();
+    });
+
+    // Start: pages need a login, so this sends signed-out visitors to /signin.html.
     showStep(1);
+    PressPassAuth.requireUser().then(async (user) => {
+      db = await PressPassAuth.getClient();
+      $("account-email").textContent = user.email || "";
+      document.body.classList.remove("auth-pending");
+      await Promise.all([loadSavedClients(), renderHistory()]);
+    }).catch((err) => {
+      document.body.classList.remove("auth-pending");
+      $("form-error").textContent = `Couldn't load your account: ${err.message}`;
+      $("form-error").hidden = false;
+    });
   </script>
 </body>
 </html>

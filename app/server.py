@@ -1,6 +1,9 @@
 """Tiny local server for the Press Pass prototype.
 
-Serves the files in app/ and adds two routes:
+Serves the files in app/ and adds these routes. All but /api/config need a
+signed-in user: the browser sends its Supabase access token in an
+"Authorization: Bearer ..." header and the server checks it with Supabase.
+  GET  /api/config    the Supabase URL and publishable key for the browser
   GET  /api/news      gathers this week's articles for one category from
                       three kinds of sources and removes duplicates:
                         1. Google News RSS search (no key needed)
@@ -53,9 +56,13 @@ USER_AGENT = "Mozilla/5.0 (press-pass-prototype)"
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 GNEWS_URL = "https://gnews.io/api/v4/search"
 
+AUTH_CACHE_SECONDS = 60   # a checked sign-in token is trusted for up to a minute
+
 feedback_lock = threading.Lock()
 feed_cache_lock = threading.Lock()
 feed_cache = {"fetched_at": 0.0, "articles": []}
+auth_cache_lock = threading.Lock()
+auth_cache = {}  # token -> (user_id, checked_at)
 
 
 # ---------------------------------------------------------------------------
@@ -603,6 +610,47 @@ def gather_candidates(terms, exclude, priority_sites):
     return merge_and_rank(results, priority_sites, limit=None)
 
 
+# ---------------------------------------------------------------------------
+# Sign-in (Supabase Auth)
+# The browser signs in with Supabase directly and sends its access token with
+# each API call. The server asks Supabase who the token belongs to, using only
+# the publishable key (no secret key is needed or used).
+# ---------------------------------------------------------------------------
+def supabase_settings():
+    """(url, publishable_key) from the environment; empty strings if not set."""
+    url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+    return url, key
+
+
+def verify_user(token, timeout=10):
+    """Return the Supabase user id for a valid access token, or None."""
+    url, key = supabase_settings()
+    if not token or not url or not key:
+        return None
+    now = time.time()
+    with auth_cache_lock:
+        cached = auth_cache.get(token)
+        if cached and now - cached[1] < AUTH_CACHE_SECONDS:
+            return cached[0]
+    request = urllib.request.Request(
+        url + "/auth/v1/user",
+        headers={"apikey": key, "Authorization": "Bearer " + token, "User-Agent": USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            user_id = json.loads(response.read()).get("id")
+    except (urllib.error.URLError, ValueError, OSError):  # 401/403 for bad tokens, or Supabase unreachable
+        return None
+    if not user_id:
+        return None
+    with auth_cache_lock:
+        for old in [t for t, (_, at) in auth_cache.items() if now - at >= AUTH_CACHE_SECONDS]:
+            del auth_cache[old]
+        auth_cache[token] = (user_id, now)
+    return user_id
+
+
 def save_feedback(entry):
     """Append one feedback entry to app/data/feedback.json."""
     with feedback_lock:
@@ -624,8 +672,12 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/data/"):
             return self.send_json(404, {"error": "Not found."})  # keep feedback notes off the web page
+        if parsed.path == "/api/config":
+            return self.send_config()
         if parsed.path != "/api/news":
             return super().do_GET()
+        if not self.signed_in_user():
+            return
 
         params = urllib.parse.parse_qs(parsed.query)
         terms = params.get("terms", [""])[0].strip()
@@ -643,10 +695,13 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
 
     def do_POST(self):
+        if self.path not in ("/api/pdf", "/api/feedback"):
+            return self.send_json(404, {"error": "Not found."})
+        user_id = self.signed_in_user()
+        if not user_id:
+            return
         if self.path == "/api/pdf":
             return self.read_pdf()
-        if self.path != "/api/feedback":
-            return self.send_json(404, {"error": "Not found."})
         try:
             length = int(self.headers.get("Content-Length", 0))
             entry = json.loads(self.rfile.read(min(length, 20000)))
@@ -655,6 +710,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, json.JSONDecodeError):
             return self.send_json(400, {"error": "Invalid feedback."})
 
+        entry["user_id"] = user_id  # from the checked token, never from the request body
         entry["saved_at"] = datetime.now(timezone.utc).isoformat()
         try:
             save_feedback(entry)
@@ -678,6 +734,25 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(502, {"error": f"Couldn't read the PDF ({error})."})
         self.send_json(200, result)
 
+    def send_config(self):
+        """GET /api/config: what the browser needs to talk to Supabase.
+        The publishable key is designed to be public; Row Level Security protects the data."""
+        url, key = supabase_settings()
+        self.send_json(200, {"supabase_url": url, "supabase_publishable_key": key, "auth_configured": bool(url and key)})
+
+    def signed_in_user(self):
+        """The user id from the request's sign-in token. Sends an error and returns None if missing or invalid."""
+        url, key = supabase_settings()
+        if not (url and key):
+            self.send_json(503, {"error": "Sign-in isn't set up: add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env."})
+            return None
+        header = self.headers.get("Authorization", "")
+        token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+        user_id = verify_user(token)
+        if not user_id:
+            self.send_json(401, {"error": "Please sign in again."})
+        return user_id
+
     def send_json(self, status, payload):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -691,6 +766,7 @@ if __name__ == "__main__":
     load_env()
     print("GNews:", "on" if os.environ.get("GNEWS_API_KEY") else "off (add GNEWS_API_KEY to .env to turn it on)")
     print("Claude scoring:", f"on ({CLAUDE_MODEL})" if os.environ.get("ANTHROPIC_API_KEY") else "off (add ANTHROPIC_API_KEY to .env to turn it on)")
+    print("Sign-in:", "on (Supabase)" if all(supabase_settings()) else "NOT SET UP (add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env; the app won't work without them)")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Press Pass running at http://localhost:{PORT}  (press Ctrl+C to stop)")
     try:
