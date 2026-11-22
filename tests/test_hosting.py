@@ -60,8 +60,22 @@ class PrivateFilesTests(unittest.TestCase):
         self.assertEqual(status, 404)
 
     def test_app_pages_are_served(self):
-        for path in ("/", "/signin.html", "/auth.js"):
+        for path in ("/", "/?v=123", "/index.html", "/signin.html", "/auth.js"):
             self.assertEqual(self.status(path)[0], 200, path)
+
+    def test_nothing_else_in_app_is_served(self):
+        # Found on the live site: /server.py was downloadable. Only the three public files are now.
+        for path in ("/server.py", "/feeds.json", "/outlets.json", "/data/", "/data/feedback.json",
+                     "/SERVER.PY", "/server.py?x=1", "//server.py", "/index.html/", "/nope.html"):
+            status, body = self.status(path)
+            self.assertEqual(status, 404, path)
+            self.assertNotIn(b"def ", body, path)
+
+    def test_head_requests_follow_the_same_rule(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.request("HEAD", "/server.py")
+        self.assertEqual(conn.getresponse().status, 404)
+        conn.close()
 
 
 if __name__ == "__main__":

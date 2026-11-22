@@ -59,6 +59,8 @@ EXA_URL = "https://api.exa.ai/search"
 NYT_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
 OUTLETS_FILE = os.path.join(APP_DIR, "outlets.json")
 
+# The only files the web server hands to browsers. Everything else in app/ stays private.
+PUBLIC_FILES = {"/index.html", "/signin.html", "/auth.js"}
 AUTH_CACHE_SECONDS = 60   # a checked sign-in token is trusted for up to a minute
 
 feed_cache_lock = threading.Lock()
@@ -874,12 +876,10 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path.startswith("/data/"):
-            return self.send_json(404, {"error": "Not found."})  # old local feedback notes stay off the web
         if parsed.path == "/api/config":
             return self.send_config()
         if parsed.path != "/api/news":
-            return super().do_GET()
+            return self.serve_public_file(parsed.path, head_only=False)
         user_id = self.signed_in_user()
         if not user_id or self.over_rate_limit(user_id, "news"):
             return
@@ -899,6 +899,19 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, {"articles": articles, "ai": ai, "search": search})
         except Exception as error:  # network failure, timeout, bad XML, etc.
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
+
+    def do_HEAD(self):
+        self.serve_public_file(urllib.parse.urlparse(self.path).path, head_only=True)
+
+    def serve_public_file(self, path, head_only):
+        """Serve only the files a browser needs (PUBLIC_FILES); everything else in app/
+        (server code, feeds.json, old notes in data/) is a 404, so nothing private can leak."""
+        if path == "/":
+            path = "/index.html"
+        if path not in PUBLIC_FILES:
+            return self.send_json(404, {"error": "Not found."})
+        self.path = path
+        return super().do_HEAD() if head_only else super().do_GET()
 
     def do_POST(self):
         # Feedback notes are saved by the page straight into Supabase (the feedback table),
