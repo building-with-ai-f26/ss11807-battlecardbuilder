@@ -56,6 +56,7 @@ USER_AGENT = "Mozilla/5.0 (press-pass-prototype)"
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 GNEWS_URL = "https://gnews.io/api/v4/search"
 EXA_URL = "https://api.exa.ai/search"
+EXA_OPEN_RESULTS = 20  # product decision: the open search returns 20 (not 10) so smaller outlets get a look; +~1¢
 NYT_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
 OUTLETS_FILE = os.path.join(APP_DIR, "outlets.json")
 
@@ -336,7 +337,7 @@ def search_gnews(terms, exclude):
     return articles
 
 
-def exa_objective(category, about, exclude_words, priority_sites):
+def exa_objective(category, about, exclude_words, priority_sites, companies=()):
     """The goal this search serves, in plain words. Exa uses it to decide what ranks first.
 
     Exa's guidance: the query says what to retrieve; what to prefer, what to exclude
@@ -351,13 +352,15 @@ def exa_objective(category, about, exclude_words, priority_sites):
     if exclude_words:
         excluded += ", and anything about " + ", ".join(exclude_words)
     parts.append(f"Exclude {excluded}.")
+    if companies:
+        parts.append("Rank higher stories that name any of these companies: " + ", ".join(companies[:12]) + ".")
     if priority_sites:
         parts.append("Prefer established outlets such as " + ", ".join(priority_sites[:12]) + ".")
     parts.append("Pull who did what, the key numbers, names and dates, and why it matters for this topic.")
     return " ".join(parts)[:4000]
 
 
-def search_exa(terms, exclude, about="", sites=None, costs=None, category="", priority_sites=()):
+def search_exa(terms, exclude, about="", sites=None, costs=None, category="", priority_sites=(), companies=()):
     """Exa news search for the last 7 days, with key passages ("highlights") for each article.
 
     Follows Exa's recommended request (query + type auto + bare highlights) plus only
@@ -374,7 +377,7 @@ def search_exa(terms, exclude, about="", sites=None, costs=None, category="", pr
         "query": f"latest news on {topic}"[:1000],
         "type": "auto",
         "objective": exa_objective(category or topic, about, blocked_words(terms, exclude),
-                                   [] if sites else list(priority_sites)),
+                                   [] if sites else list(priority_sites), list(companies)),
         "category": "news",
         "startPublishedDate": since,
         # Highlights are the passages most relevant to the search: enough to score and
@@ -383,6 +386,8 @@ def search_exa(terms, exclude, about="", sites=None, costs=None, category="", pr
     }
     if sites:
         body["includeDomains"] = list(sites)
+    else:
+        body["numResults"] = EXA_OPEN_RESULTS
     data = post_json(EXA_URL, body, {"x-api-key": key})
     if costs is not None:
         costs.append(float((data.get("costDollars") or {}).get("total") or 0))
@@ -488,15 +493,19 @@ CLAUDE_MODEL = "claude-haiku-5-5"
 # Claude Haiku 5.5 prices in US dollars per million tokens (prompts up to 100K tokens).
 PRICE_INPUT_PER_MTOK = 0.10
 PRICE_OUTPUT_PER_MTOK = 0.50
-MAX_AI_CANDIDATES = 20  # articles sent to Claude per category
-MIN_RELEVANCE = 5       # 0-10; articles scored lower go to the "filtered" pile on the page
+MAX_AI_CANDIDATES = 30  # articles sent to Claude per category (priority outlets fill the first places)
+MIN_RELEVANCE = 7       # 0-10; an article needs at least this to make the newsletter
+MIN_TOPIC_FIT = 3       # 0-4; and must be mainly about the category
+MAX_FEEDBACK_EXAMPLES = 20  # the user's past removals shown to Claude per category
 # Rubric: Claude scores each part; the code adds them up (max 10) and applies the format cap.
 RUBRIC_MAX = {"topic_fit": 4, "client_impact": 2, "newsworthiness": 2, "source_format": 2}
 EXCLUDED_FORMAT_CAP = 2  # op-eds, podcasts, advice columns, sponsored, lifestyle: at most 2 in total
 
 CLAUDE_INSTRUCTIONS = """You help a PR agency pick news for a weekly client newsletter.
 You get the client, the companies to watch (the client's competitors and other companies the agency tracks),
-one newsletter category, and a numbered list of candidate articles (headline, source, and sometimes a short description).
+one newsletter category, and a numbered list of candidate articles (headline, source, how long ago it was published,
+and usually a description or excerpts from the article). Articles marked [priority outlet] come from the outlets
+the agency trusts most for this client.
 Work out the client's industry from the client name, the companies to watch and the category.
 
 For every article, score each part of this rubric (whole numbers only):
@@ -507,13 +516,27 @@ For every article, score each part of this rubric (whole numbers only):
 - client_impact (0-2): does it matter to this client? 2 = names the client or a company to watch, or directly
   affects the client's business, customers, regulators or competitors; 1 = relevant to the client's industry
   in general; 0 = no clear link to the client.
-- newsworthiness (0-2): 2 = a specific new development (a decision, data release, deal, rule change, major move);
-  1 = a routine daily market wrap, week-ahead preview or recap; 0 = old, vague or evergreen content.
-- source_format (0-2): 2 = a straight news report from a credible outlet; 1 = a credible but lesser-known outlet,
-  a trade blog or a press-release style piece; 0 = an unreliable source.
+- newsworthiness (0-2): 2 = a specific new development reported in the last few days (a decision, data release,
+  deal, rule change, launch, incident, major move); 1 = a routine market wrap, preview, recap or a follow-up
+  with little new; 0 = old, vague or evergreen content.
+- source_format (0-2): 2 = a straight news report from a [priority outlet] or another major outlet;
+  1 = a credible but lesser-known outlet, a trade blog or a press-release style piece; 0 = an unreliable source.
 - excluded_format (true/false): true if it is an op-ed or opinion piece, podcast or podcast transcript,
   advice column, sponsored content, or a lifestyle or entertainment story.
-Score each article on its own merits; do not give them all the same scores.
+Score each article on its own merits; do not give them all the same scores. Be strict: an article only
+belongs in the newsletter if it is mainly about this category and is real news for this client.
+If "Articles this user removed before" are listed, use each removal reason for what it says, and nothing more:
+  - "Off-topic": the subject was wrong for this category. Score articles on that kind of subject lower topic_fit.
+  - "Low-quality source": the outlet was the problem, not the story. Score articles from that outlet (or similar
+    low-quality outlets) lower source_format. The same story from a better outlet is still welcome.
+  - "Not this week": the news was old or a rehash. Score similar recaps lower newsworthiness.
+  - "Industry report": the user doesn't want reports, surveys or indexes. Score those lower newsworthiness.
+  - Any note the user typed explains their reason in their own words; follow it.
+  Never mark a story down only because a copy of it from another outlet was removed. When a removal changed a
+  score, say so in the reason (e.g. "an outlet you removed before").
+- reason: one plain sentence (at most 25 words) saying why the article earned its score: its strongest point
+  and, if any, what cost it points (e.g. "Squarely about cold storage and names Coinbase, but a follow-up with
+  little new."). No numbers or scores in the reason.
 - same_story_as: articles about the same event or announcement are one story, even when the headlines
   are worded differently or come from different outlets. Give the id of the lowest-numbered article in
   that story; an article no other article covers gets its own id.
@@ -545,10 +568,11 @@ SCORE_SCHEMA = {
                     "source_format": {"type": "integer"},
                     "excluded_format": {"type": "boolean"},
                     "same_story_as": {"type": "integer"},
+                    "reason": {"type": "string"},
                     "summary": {"type": "string"},
                 },
                 "required": ["id", "topic_fit", "client_impact", "newsworthiness",
-                             "source_format", "excluded_format", "same_story_as", "summary"],
+                             "source_format", "excluded_format", "same_story_as", "reason", "summary"],
                 "additionalProperties": False,
             },
         }
@@ -558,7 +582,18 @@ SCORE_SCHEMA = {
 }
 
 
-def build_claude_prompt(client, category, terms, articles, companies=(), about=""):
+def age_text(date):
+    """'3 hours ago' / '2 days ago' for the prompt, so Claude can judge how fresh the news is."""
+    if not date:
+        return "date unknown"
+    hours = max(0, int((datetime.now(timezone.utc) - date).total_seconds() // 3600))
+    if hours < 24:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = hours // 24
+    return f"{days} day{'s' if days != 1 else ''} ago"
+
+
+def build_claude_prompt(client, category, terms, articles, companies=(), about="", removed=()):
     lines = [
         f"Client: {client or 'not given'}",
         f"Companies to watch: {', '.join(companies) if companies else 'none given'}",
@@ -573,9 +608,15 @@ def build_claude_prompt(client, category, terms, articles, companies=(), about="
         "Articles:",
     ]
     for i, a in enumerate(articles):
-        lines.append(f"[{i}] {a['headline']} ({a['source']})")
+        marker = " [priority outlet]" if a.get("priority") else ""
+        lines.append(f"[{i}] {a['headline']} ({a['source']}{marker}, {age_text(a.get('date'))})")
         if a["description"]:
             lines.append(f"    Description: {a['description']}")
+    if removed:
+        lines += ["", "Articles this user removed before, and why (apply each reason as explained above):"]
+        for r in removed:
+            why = "; ".join([", ".join(r.get("reasons") or []), (r.get("note") or "").strip()]).strip("; ") or "no reason given"
+            lines.append(f"- \"{r.get('headline', '')}\" ({r.get('source', '')}), {r.get('category', '')}: {why}")
     return "\n".join(lines)
 
 
@@ -628,9 +669,9 @@ def rubric_score(item):
     return total, {**parts, "excluded_format": bool(item.get("excluded_format"))}
 
 
-def score_with_claude(client, category, terms, articles, companies=(), about=""):
-    """Add a relevance score and summary to each article. Returns usage/cost info for the page."""
-    response = call_claude(build_claude_prompt(client, category, terms, articles, companies, about))
+def score_with_claude(client, category, terms, articles, companies=(), about="", removed=()):
+    """Add a relevance score, reason and summary to each article. Returns usage/cost info for the page."""
+    response = call_claude(build_claude_prompt(client, category, terms, articles, companies, about, removed))
     if response.get("stop_reason") == "refusal":
         raise RuntimeError("Claude declined this request")
     if response.get("stop_reason") == "max_tokens":
@@ -645,6 +686,7 @@ def score_with_claude(client, category, terms, articles, companies=(), about="")
             continue  # Claude skipped it; the article keeps no score and ranks last
         article["relevance"], article["relevance_parts"] = rubric_score(item)
         article["summary"] = item["summary"].strip()
+        article["reason"] = (item.get("reason") or "").strip()
         article["_same_story_as"] = item.get("same_story_as", i)
 
     usage = response.get("usage", {})
@@ -768,16 +810,64 @@ def collapse_duplicates(articles):
     return kept, removed
 
 
+def cutoff_reason(article):
+    """Why a scored article doesn't make the newsletter ('' if it does)."""
+    score = article.get("relevance", 0)
+    topic = (article.get("relevance_parts") or {}).get("topic_fit", 0)
+    if topic < MIN_TOPIC_FIT:
+        return f"not mainly about this category (topic {topic}/4)"
+    if score < MIN_RELEVANCE:
+        return f"below the {MIN_RELEVANCE}/10 cutoff ({score}/10)"
+    return ""
+
+
 def rank_by_relevance(articles, limit=MAX_ARTICLES):
-    """Highest Claude score first; ties go to priority sources, then newer articles."""
+    """The best articles that pass the cutoff (up to limit), then up to limit more that don't.
+
+    Highest Claude score first; ties go to priority sources, then newer articles. Articles below
+    the cutoff are marked low_relevance (with cutoff_reason) so the page files them under
+    "filtered", where the user can still include one. A category may end up with fewer than
+    limit articles, or none: that's better than padding the newsletter.
+    """
     articles.sort(key=lambda a: (-a.get("relevance", -1), not a["priority"], -a["date"].timestamp()))
-    top = articles[:limit]
-    for article in top:
-        article["low_relevance"] = article.get("relevance", 0) < MIN_RELEVANCE
-    return top
+    passing, failing = [], []
+    for article in articles:
+        reason = cutoff_reason(article)
+        article["low_relevance"] = bool(reason)
+        if reason:
+            article["cutoff_reason"] = reason
+        (failing if reason else passing).append(article)
+    return passing[:limit] + failing[:limit]
 
 
-def fetch_news(terms, exclude, priority_sites, category="", client="", companies=(), about=""):
+def fetch_removed_examples(token, client, category, limit=MAX_FEEDBACK_EXAMPLES):
+    """The signed-in user's own recent removal notes, read from Supabase with their own sign-in
+    (so Row Level Security returns only their notes). Same client and category first, then the
+    same client's other categories. Returns [] if anything goes wrong."""
+    url, key = supabase_settings()
+    if not (token and url and key and client):
+        return []
+    query = urllib.parse.urlencode({
+        "select": "client_name,category,headline,source,reasons,note,created_at",
+        "order": "created_at.desc",
+        "limit": "200",
+    })
+    request = urllib.request.Request(f"{url}/rest/v1/feedback?{query}", headers={
+        "apikey": key, "Authorization": "Bearer " + token, "User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            notes = json.loads(response.read())
+    except (urllib.error.URLError, ValueError, OSError) as error:
+        print(f"  couldn't read past feedback ({error.__class__.__name__}); scoring without it")
+        return []
+    same = lambda a, b: (a or "").strip().lower() == (b or "").strip().lower()
+    mine = [n for n in notes if same(n.get("client_name"), client)]
+    exact = [n for n in mine if same(n.get("category"), category)]
+    others = [n for n in mine if not same(n.get("category"), category)]
+    return (exact + others)[:limit]
+
+
+def fetch_news(terms, exclude, priority_sites, category="", client="", companies=(), about="", token=""):
     """Search every source for one category and return the top 5 articles.
 
     With an ANTHROPIC_API_KEY, Claude scores and summarizes the candidates and the
@@ -786,12 +876,15 @@ def fetch_news(terms, exclude, priority_sites, category="", client="", companies
     Returns (articles, ai info, search info).
     """
     search = {}
-    candidates = gather_candidates(terms, exclude, priority_sites, about, search, category)
+    candidates = gather_candidates(terms, exclude, priority_sites, about, search, category, companies)
     ai = {"used": False}
     if os.environ.get("ANTHROPIC_API_KEY", "").strip() and candidates:
         to_score = candidates[:MAX_AI_CANDIDATES]
+        removed = fetch_removed_examples(token, client, category or terms)
         try:
-            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies, about)}
+            ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies, about, removed)}
+            ai["feedback_examples"] = len(removed)
+            ai["cutoff"] = MIN_RELEVANCE
             unique, ai["duplicates_merged"] = collapse_duplicates(to_score)
             top = rank_by_relevance(unique)
         except Exception as error:  # bad key, spend limit, timeout, unexpected answer...
@@ -806,7 +899,7 @@ def fetch_news(terms, exclude, priority_sites, category="", client="", companies
     return top, ai, search
 
 
-def gather_candidates(terms, exclude, priority_sites, about="", search=None, category=""):
+def gather_candidates(terms, exclude, priority_sites, about="", search=None, category="", companies=()):
     """Search every source for one category; return all unique candidates, best first.
 
     With an EXA_API_KEY, Exa (one search limited to the priority sources, one open
@@ -820,9 +913,9 @@ def gather_candidates(terms, exclude, priority_sites, about="", search=None, cat
     if os.environ.get("EXA_API_KEY", "").strip():
         if priority_sites:
             searches.append(("Exa (priority sources)", lambda: search_exa(
-                terms, exclude, about, priority_sites, costs, category=category)))
+                terms, exclude, about, priority_sites, costs, category=category, companies=companies)))
         searches.append(("Exa", lambda: search_exa(
-            terms, exclude, about, None, costs, category=category, priority_sites=priority_sites)))
+            terms, exclude, about, None, costs, category=category, priority_sites=priority_sites, companies=companies)))
     else:
         if priority_sites:
             searches.append(("Google News (priority sources)",
@@ -946,7 +1039,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not terms:
             return self.send_json(400, {"error": "Missing search terms."})
         try:
-            articles, ai, search = fetch_news(terms, exclude, priority, category, client, companies, about)
+            articles, ai, search = fetch_news(terms, exclude, priority, category, client, companies, about,
+                                              token=getattr(self, "access_token", ""))
             self.send_json(200, {"articles": articles, "ai": ai, "search": search})
         except Exception as error:  # network failure, timeout, bad XML, etc.
             self.send_json(502, {"error": f"Could not reach any news source ({error.__class__.__name__})."})
@@ -1036,6 +1130,7 @@ class Handler(SimpleHTTPRequestHandler):
         user_id = verify_user(token)
         if not user_id:
             self.send_json(401, {"error": "Please sign in again."})
+        self.access_token = token  # lets /api/news read this user's own feedback notes (RLS applies)
         return user_id
 
     def send_json(self, status, payload):

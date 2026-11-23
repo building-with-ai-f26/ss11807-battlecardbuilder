@@ -151,6 +151,9 @@
     .tag.filter { color: #fff; background: #6b7280; }
     .summary { margin: 0 0 12px; font-size: 14px; }
     .also-covered { margin: -6px 0 12px; }
+    .why { margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
+    .why-label { font-weight: 600; }
+    .why .parts { white-space: nowrap; opacity: 0.8; }
     .article-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .btn-add { color: var(--keep); border-color: #86efac; }
     .btn-remove { color: var(--remove); }
@@ -398,11 +401,18 @@ americanbanker.com</textarea>
       return articleKeys(a).some((k) => keys.includes(k));
     }
 
+    // "8/10 · topic 4/4 · client 2/2 · news 1/2 · source 1/2", shown quietly after the reason.
+    function scoreParts(a) {
+      const p = a.relevance_parts;
+      if (!p || a.relevance == null) return "";
+      return ` <span class="parts">${a.relevance}/10 · topic ${p.topic_fit}/4 · client ${p.client_impact}/2 · news ${p.newsworthiness}/2 · source ${p.source_format}/2${p.excluded_format ? " · opinion/podcast/sponsored, capped" : ""}</span>`;
+    }
+
     function filterReason(article) {
       const text = `${article.headline} ${article.source}`;
       const match = FILTERS.find((f) => f.pattern.test(text));
       if (match) return match.reason;
-      return article.low_relevance ? `low relevance (${article.relevance}/10)` : "";
+      return article.low_relevance ? (article.cutoff_reason || `low relevance (${article.relevance}/10)`) : "";
     }
 
     // ---------------------------------------------------------------
@@ -657,6 +667,7 @@ americanbanker.com</textarea>
             <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
           </p>
           ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}
+          ${a.reason ? `<p class="why"><span class="why-label">${a.status === "filtered" ? "Why it was set aside" : "Why it's here"}:</span> ${escapeHtml(a.reason)}${scoreParts(a)}</p>` : ""}
           ${a.also_covered && a.also_covered.length ? `<p class="meta also-covered">Also covered by: ${a.also_covered.map((o) =>
               `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${escapeHtml(o.source)}</a>`).join(", ")}</p>` : ""}
           <div class="article-buttons">${buttons}</div>
@@ -719,9 +730,14 @@ americanbanker.com</textarea>
           } else if (ai.error) {
             status += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
           }
+          if (ai.used) {
+            const learned = ai.feedback_examples ? ` · learned from ${ai.feedback_examples} of your past removal${ai.feedback_examples === 1 ? "" : "s"}` : "";
+            status += `<p class="status">${fetched.length} article${fetched.length === 1 ? "" : "s"} made the ${ai.cutoff || 7}/10 cutoff${learned}</p>`;
+          }
           if (fetched.length < 2) {
-            status += `<p class="status weak">No strong matches — try refining the search terms.
-              <span class="optional">(${fetched.length} unfiltered result${fetched.length === 1 ? "" : "s"} from the past 7 days)</span></p>`;
+            const hint = ai.used && filtered.length ? ` The rest are under "Show filtered", each with the reason it was set aside.` : "";
+            status += `<p class="status weak">${fetched.length ? "Only one strong match" : "No strong matches"} this week.${hint}
+              Try refining the search terms or "What it means for this client".</p>`;
           }
         }
 
@@ -1161,7 +1177,8 @@ americanbanker.com</textarea>
         categories: state.categories.map((c) => c.name),
         articles: included.map((a) => ({
           category: a.category, headline: a.headline, url: a.url, source: a.source,
-          date: a.date || null, summary: a.summary || "", relevance: a.relevance ?? null, manual: !!a.manual
+          date: a.date || null, summary: a.summary || "", relevance: a.relevance ?? null, manual: !!a.manual,
+          reason: a.reason || "", relevance_parts: a.relevance_parts || null
         })),
         draft_html: $("draft").innerHTML,
         ai_cost_usd: state.categories.reduce((sum, c) => sum + ((c.ai && c.ai.cost_usd) || 0), 0),

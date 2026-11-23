@@ -21,7 +21,11 @@ app/
                     than 7 days, removes exact duplicates, then asks Claude to score and summarize.
                     In the same Claude call each article gets same_story_as; collapse_duplicates()
                     keeps one article per story (priority outlet, then fullest text, then earliest)
-                    and lists the others as also_covered. The page also sets aside an article that
+                    and lists the others as also_covered. Claude also returns a one-sentence reason;
+                    rank_by_relevance() keeps articles with >= 7/10 and topic_fit >= 3 (MIN_RELEVANCE,
+                    MIN_TOPIC_FIT) and sends the rest to the page's filtered pile with cutoff_reason.
+                    fetch_removed_examples() reads the user's own recent feedback (their token, RLS)
+                    and Claude gets up to 20 as examples of what they don't want. The page also sets aside an article that
                     is already in another category (same link or headline).
                     POST /api/pdf sends an uploaded PDF of a paywalled article to Claude
                     and returns its headline, source and summary (the PDF is not saved).
@@ -46,6 +50,8 @@ tests/
                     responses), fallbacks.
   test_exa_nyt.py   Offline tests for Exa and NYT (faked answers): request settings, highlights,
                     excluded words, dates, which sources run with which keys.
+  test_scoring.py   Offline tests for scoring: reasons, cutoff, priority/age markers in the prompt,
+                    reading the user's own past removals (faked Supabase and Claude).
   test_duplicates.py Offline tests for duplicate stories: grouping, which copy is kept,
                     "also covered by", merging before ranking (faked Claude answers).
   test_hosting.py   Offline tests for hosting: listen address with/without PORT; .env and
@@ -67,7 +73,7 @@ SECURITY.md         Security audit (Build 3): what was checked on the live site,
 - **Run locally:** `python3 app/server.py` from the repo root, then open http://localhost:8000 (Ctrl+C to stop). The first lines printed say which sources (Exa, NYT, or Google News/GNews), Claude scoring and sign-in are on.
 - **Run deterministic tests:** `python3 -m unittest discover tests` (no internet or keys needed; costs nothing).
 - **Run model evals:** Not built yet (planned for Build 4).
-- **Cost:** Exa search about $0.03 per category (two searches of 10 results with highlights; Exa's own estimate is shown on the page), so about $0.10 per 3-category newsletter. NYT is free. Claude: about $0.001–$0.0024 per category searched (20 articles scored with the four-part rubric), about $0.003–$0.007 per 3-category newsletter. Shown on the page under each category.
+- **Cost:** Exa search about $0.025 per category (priority search: 10 results; open search: 20 results, so smaller outlets get a look; both with highlights; Exa's own estimate is shown on the page), so about $0.08 per 3-category newsletter. Up to 30 candidates per category go to Claude. NYT is free. Claude: about $0.001–$0.0024 per category searched (20 articles scored with the four-part rubric), about $0.003–$0.007 per 3-category newsletter. Shown on the page under each category.
 
 ## 4. Ask me first
 Stop and ask the human before any of these, even mid-task:

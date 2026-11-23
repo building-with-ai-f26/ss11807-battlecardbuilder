@@ -197,9 +197,29 @@ class ClaudeStepTests(unittest.TestCase):
         for a in articles:
             a["priority"] = False
         articles[0]["relevance"], articles[1]["relevance"] = 2, 8
+        articles[0]["relevance_parts"], articles[1]["relevance_parts"] = {"topic_fit": 1}, {"topic_fit": 4}
         top = server.rank_by_relevance(articles)
         self.assertEqual([a["headline"] for a in top], ["Strong", "Weak"])
         self.assertEqual([a["low_relevance"] for a in top], [False, True])
+
+    def test_cutoff_needs_seven_and_mainly_on_topic(self):
+        def scored(name, total, topic):
+            a = article(name, f"https://a.com/{name}")
+            a["priority"], a["relevance"], a["relevance_parts"] = False, total, {"topic_fit": topic}
+            return a
+        top = server.rank_by_relevance([scored("Good", 8, 4), scored("Borderline", 7, 3),
+                                        scored("High but off-topic", 8, 2), scored("On-topic but weak", 6, 4)])
+        passed = [a["headline"] for a in top if not a["low_relevance"]]
+        self.assertEqual(passed, ["Good", "Borderline"])
+        reasons = {a["headline"]: a.get("cutoff_reason") for a in top if a["low_relevance"]}
+        self.assertEqual(reasons["High but off-topic"], "not mainly about this category (topic 2/4)")
+        self.assertEqual(reasons["On-topic but weak"], "below the 7/10 cutoff (6/10)")
+
+    def test_a_category_can_have_no_articles_that_pass(self):
+        weak = article("Weak", "https://a.com/w")
+        weak["priority"], weak["relevance"], weak["relevance_parts"] = False, 4, {"topic_fit": 1}
+        top = server.rank_by_relevance([weak])
+        self.assertTrue(all(a["low_relevance"] for a in top))
 
     def test_refusal_raises(self):
         with self.assertRaises(RuntimeError):

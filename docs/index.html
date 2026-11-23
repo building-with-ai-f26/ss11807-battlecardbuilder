@@ -159,6 +159,9 @@
       color: var(--muted);
       margin-top: 6px;
     }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 0.95em; }
+    th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+    th { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -290,14 +293,27 @@
       </ul>
       <p><strong>How the app works:</strong></p>
       <ol>
-        <li>The user enters the client, priority sources and categories (with optional search terms and excluded words).</li>
-        <li>For each category, the local Python server searches four sources at once: Google News for the priority sources, Google News across all outlets, 10 publisher RSS feeds (Bloomberg, NYT, FT, WSJ, TIME), and the GNews API. Reuters and Barron's have no public feeds, so they are searched through Google News.</li>
-        <li>Articles older than 7 days or without a date are dropped, and the same story from two sources is merged.</li>
-        <li>The best 20 candidates go to Claude in one request. It returns a relevance score and a summary for each as structured JSON. The top 5 are shown; anything under 5/10 goes to a "filtered" pile that the user can still open.</li>
+        <li>The user signs in, then enters the client, priority sources and categories (with optional search terms, excluded words, and a "What it means for this client" description that keeps an ambiguous name like "Hardware Security" on topic).</li>
+        <li>For each category, the server searches Exa twice (once limited to the client's priority outlets, once open; news from the last 7 days, with excerpts from each article), the NYT Article Search API, and 10 publisher RSS feeds as backup.</li>
+        <li>Articles older than 7 days or without a date are dropped, and exact repeats (same link or headline) are removed.</li>
+        <li>The best 20 candidates go to Claude in one request, with the user's own recent removals and reasons as examples of what they don't want. For each article Claude returns the rubric scores below, a one-sentence reason, a summary, and which other articles cover the same story.</li>
+        <li>Duplicate stories are merged: one article per story is kept (a priority outlet first, then the fullest text, then the earliest), and the others are listed as "Also covered by".</li>
+        <li>Only articles scoring at least 7/10 <em>and</em> mainly about the category (topic fit at least 3 of 4) make the newsletter, up to 5 per category; the rest go to a "filtered" pile with their reason, where the user can still include one. A category can end up with fewer than 5, or none.</li>
         <li>The user reorders or removes articles (with a reason) and adds paywalled ones by uploading a PDF of the article: Claude reads it and fills in the headline, source and a summary for the user to check (about $0.0004 per article; the PDF is not saved). Then the user copies an email-ready draft.</li>
         <li>If Claude is unavailable, the app falls back to ranking by source and date, so the workflow never breaks.</li>
       </ol>
-      <p><strong>Simple Architecture:</strong> Client categories, keywords, priority sources → server pulls this week's articles from Google News, publisher RSS feeds and GNews → 7-day cutoff and de-duplication → Claude Haiku 5.5 scores relevance and writes summaries → user reviews and edits → user copies the newsletter draft and sends it to the client. PostHog records page views, clicks and session replays on the app and this page.</p>
+      <p><strong>Scoring rubric</strong> (out of 10; each card shows the parts and "Why it's here"):</p>
+      <table>
+        <thead><tr><th>Part</th><th>Points</th><th>Full marks when</th></tr></thead>
+        <tbody>
+          <tr><td>Topic fit</td><td>0–4</td><td>The article is mainly about this category, as defined by "What it means for this client". Another meaning of the name scores 0.</td></tr>
+          <tr><td>Client impact</td><td>0–2</td><td>It names the client or a company to watch, or directly affects their business, customers, regulators or competitors.</td></tr>
+          <tr><td>Newsworthiness</td><td>0–2</td><td>A specific new development from the last few days, not a recap, preview, follow-up with little new, or evergreen piece.</td></tr>
+          <tr><td>Source quality</td><td>0–2</td><td>A straight news report from one of the client's priority outlets or another major outlet.</td></tr>
+        </tbody>
+      </table>
+      <p>Opinion pieces, podcasts, advice columns, sponsored and lifestyle content are capped at 2/10. Cutoff: at least 7/10 and topic fit at least 3/4.</p>
+      <p><strong>Simple Architecture:</strong> Client categories, keywords, descriptions, priority sources → server pulls this week's articles from Exa, NYT and publisher RSS feeds → 7-day cutoff and exact de-duplication → Claude Haiku 5.5 scores with the rubric, explains each score, marks same-story duplicates and writes summaries, using the user's past removals → duplicates merged, 7/10 cutoff → user reviews and edits → user copies the newsletter draft and sends it to the client. PostHog records page views, clicks and session replays on the app and this page.</p>
 
       <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">

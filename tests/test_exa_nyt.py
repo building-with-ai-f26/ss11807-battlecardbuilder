@@ -68,7 +68,7 @@ class ExaTests(unittest.TestCase):
         self.assertEqual(headers, {"x-api-key": "test-exa"})
         self.assertEqual(body["type"], "auto")
         self.assertEqual(body["contents"], {"highlights": True})  # bare highlights; no full text (cost)
-        self.assertNotIn("numResults", body)                        # server default (10)
+        self.assertNotIn("numResults", body)                        # priority search: server default (10)
         # What the product asked for: news, last 7 days, priority outlets as a hard list.
         self.assertEqual(body["category"], "news")
         self.assertEqual(body["includeDomains"], ["wsj.com", "nytimes.com"])
@@ -84,7 +84,13 @@ class ExaTests(unittest.TestCase):
         _, post, _ = self.run_exa(exa_answer(), priority_sites=["wsj.com", "barrons.com"])
         body = post.call_args[0][1]
         self.assertNotIn("includeDomains", body)
+        self.assertEqual(body["numResults"], 20)  # product decision: wider net for smaller outlets
         self.assertIn("Prefer established outlets such as wsj.com, barrons.com", body["objective"])
+
+    def test_companies_to_watch_go_in_the_objective(self):
+        _, post, _ = self.run_exa(exa_answer(), companies=["Coinbase", "Trezor"])
+        self.assertIn("Rank higher stories that name any of these companies: Coinbase, Trezor.", post.call_args[0][1]["objective"])
+        self.assertNotIn("Coinbase", post.call_args[0][1]["query"])  # retrieval intent stays plain
 
     def test_results_become_articles_with_highlights_and_cost(self):
         articles, _, costs = self.run_exa(exa_answer(
