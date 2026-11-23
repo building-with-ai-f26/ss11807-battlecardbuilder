@@ -514,6 +514,11 @@ For every article, score each part of this rubric (whole numbers only):
 - excluded_format (true/false): true if it is an op-ed or opinion piece, podcast or podcast transcript,
   advice column, sponsored content, or a lifestyle or entertainment story.
 Score each article on its own merits; do not give them all the same scores.
+- same_story_as: articles about the same event or announcement are one story, even when the headlines
+  are worded differently or come from different outlets. Give the id of the lowest-numbered article in
+  that story; an article no other article covers gets its own id.
+  Example: "Coinbase keeps over 99% of customer assets in cold storage" and "Coinbase CEO says over 99% of
+  customer crypto sits offline" are one story. Two different events about the same company are two stories.
 - summary: the news itself, written for a busy client.
   - Start with what happened: who did what, with any numbers, names or dates given.
   - Every sentence must add a fact that is not already in the headline. Stop when you run out of facts:
@@ -539,10 +544,11 @@ SCORE_SCHEMA = {
                     "newsworthiness": {"type": "integer"},
                     "source_format": {"type": "integer"},
                     "excluded_format": {"type": "boolean"},
+                    "same_story_as": {"type": "integer"},
                     "summary": {"type": "string"},
                 },
                 "required": ["id", "topic_fit", "client_impact", "newsworthiness",
-                             "source_format", "excluded_format", "summary"],
+                             "source_format", "excluded_format", "same_story_as", "summary"],
                 "additionalProperties": False,
             },
         }
@@ -639,6 +645,7 @@ def score_with_claude(client, category, terms, articles, companies=(), about="")
             continue  # Claude skipped it; the article keeps no score and ranks last
         article["relevance"], article["relevance_parts"] = rubric_score(item)
         article["summary"] = item["summary"].strip()
+        article["_same_story_as"] = item.get("same_story_as", i)
 
     usage = response.get("usage", {})
     info = {
@@ -718,6 +725,49 @@ def summarize_pdf(pdf_bytes):
     }
 
 
+def story_groups(articles):
+    """Group articles Claude marked as the same story (same_story_as). Returns lists of articles.
+
+    Links are followed to the first article of the story, so a chain (3 -> 1 -> 0) is one group.
+    Links that point nowhere valid (out of range, or forward) are ignored.
+    """
+    def root(i, seen=()):
+        target = articles[i].get("_same_story_as", i)
+        if not isinstance(target, int) or not 0 <= target < i or target in seen:
+            return i
+        return root(target, seen + (i,))
+
+    groups = {}
+    for i in range(len(articles)):
+        groups.setdefault(root(i), []).append(articles[i])
+    return list(groups.values())
+
+
+def pick_story_article(group):
+    """The one article kept for a story: a priority outlet first, then the most complete
+    (longest article text), then the earliest published (likely the original report)."""
+    return min(group, key=lambda a: (not a["priority"], -len(a.get("description") or ""), a["date"].timestamp()))
+
+
+def collapse_duplicates(articles):
+    """Keep one article per story; list the other outlets under also_covered.
+    Returns (kept articles, number of duplicate articles removed)."""
+    kept, removed = [], 0
+    for group in story_groups(articles):
+        best = pick_story_article(group)
+        others = []
+        for a in group:
+            if a is not best and a["source"] != best["source"] and a["source"] not in [o["source"] for o in others]:
+                others.append({"source": a["source"], "url": a["url"], "domain": a["domain"]})
+        if others:
+            best["also_covered"] = others
+        removed += len(group) - 1
+        kept.append(best)
+    for a in articles:
+        a.pop("_same_story_as", None)
+    return kept, removed
+
+
 def rank_by_relevance(articles, limit=MAX_ARTICLES):
     """Highest Claude score first; ties go to priority sources, then newer articles."""
     articles.sort(key=lambda a: (-a.get("relevance", -1), not a["priority"], -a["date"].timestamp()))
@@ -742,7 +792,8 @@ def fetch_news(terms, exclude, priority_sites, category="", client="", companies
         to_score = candidates[:MAX_AI_CANDIDATES]
         try:
             ai = {"used": True, **score_with_claude(client, category or terms, terms, to_score, companies, about)}
-            top = rank_by_relevance(to_score)
+            unique, ai["duplicates_merged"] = collapse_duplicates(to_score)
+            top = rank_by_relevance(unique)
         except Exception as error:  # bad key, spend limit, timeout, unexpected answer...
             print(f"  Claude step failed: {error}")
             ai = {"used": False, "error": str(error)}

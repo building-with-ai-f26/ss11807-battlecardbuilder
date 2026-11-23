@@ -150,6 +150,7 @@
     .tag.report { color: #92400e; background: #fef3c7; }
     .tag.filter { color: #fff; background: #6b7280; }
     .summary { margin: 0 0 12px; font-size: 14px; }
+    .also-covered { margin: -6px 0 12px; }
     .article-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .btn-add { color: var(--keep); border-color: #86efac; }
     .btn-remove { color: var(--remove); }
@@ -386,6 +387,17 @@ americanbanker.com</textarea>
       pattern: new RegExp(`(^|[^\\w])(${terms.map(escapeRegex).join("|")})(?=[^\\w]|$)`, "i")
     }));
 
+    // Same article in two categories: same link (ignoring ?tracking and a trailing /) or same headline.
+    function articleKeys(a) {
+      const url = (a.url || "").toLowerCase().split(/[?#]/)[0].replace(/\/+$/, "");
+      const headline = (a.headline || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return [url, headline].filter(Boolean);
+    }
+    function sameArticle(a, b) {
+      const keys = articleKeys(b);
+      return articleKeys(a).some((k) => keys.includes(k));
+    }
+
     function filterReason(article) {
       const text = `${article.headline} ${article.source}`;
       const match = FILTERS.find((f) => f.pattern.test(text));
@@ -576,7 +588,9 @@ americanbanker.com</textarea>
         if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
         data.articles.forEach((a) => {
           const id = String(nextId++);
-          const reason = filterReason(a);
+          // The same article (same link or headline) already in another category: set this copy aside.
+          const twin = Object.values(state.articles).find((b) => b.category !== cat.name && sameArticle(a, b));
+          const reason = twin ? `already in ${twin.category}` : filterReason(a);
           state.articles[id] = { ...a, id, category: cat.name, filterReason: reason, status: reason ? "filtered" : "included" };
           if (!reason) state.order.push(id);
         });
@@ -584,6 +598,7 @@ americanbanker.com</textarea>
         cat.search = data.search || {};
         cat.status = "ok";
         track("category_loaded", {
+          duplicates_merged: (data.ai && data.ai.duplicates_merged) || 0,
           articles: data.articles.length,
           ai_used: !!cat.ai.used,
           ai_cost_usd: cat.ai.cost_usd || 0,
@@ -642,6 +657,8 @@ americanbanker.com</textarea>
             <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
           </p>
           ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}
+          ${a.also_covered && a.also_covered.length ? `<p class="meta also-covered">Also covered by: ${a.also_covered.map((o) =>
+              `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${escapeHtml(o.source)}</a>`).join(", ")}</p>` : ""}
           <div class="article-buttons">${buttons}</div>
         </div>`;
     }
@@ -697,7 +714,8 @@ americanbanker.com</textarea>
             status += `<p class="status">Searched ${escapeHtml(search.sources.join(", "))}${cost}${escapeHtml(failed)}</p>`;
           }
           if (ai.used) {
-            status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries · $${ai.cost_usd.toFixed(4)}</p>`;
+            const merged = ai.duplicates_merged ? ` · merged ${ai.duplicates_merged} duplicate${ai.duplicates_merged === 1 ? "" : "s"} of the same story` : "";
+            status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries${merged} · $${ai.cost_usd.toFixed(4)}</p>`;
           } else if (ai.error) {
             status += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
           }

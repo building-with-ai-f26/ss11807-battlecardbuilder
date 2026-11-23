@@ -18,7 +18,11 @@ app/
   server.py         Local server. GET /api/config gives the browser the Supabase URL and
                     publishable key. Every /api route except config needs a valid sign-in token.
                     GET /api/news searches all sources, drops articles older
-                    than 7 days, removes duplicates, then asks Claude to score and summarize.
+                    than 7 days, removes exact duplicates, then asks Claude to score and summarize.
+                    In the same Claude call each article gets same_story_as; collapse_duplicates()
+                    keeps one article per story (priority outlet, then fullest text, then earliest)
+                    and lists the others as also_covered. The page also sets aside an article that
+                    is already in another category (same link or headline).
                     POST /api/pdf sends an uploaded PDF of a paywalled article to Claude
                     and returns its headline, source and summary (the PDF is not saved).
                     /api/news and /api/pdf have per-user hourly limits (RATE_LIMITS: 30 and 10).
@@ -42,6 +46,8 @@ tests/
                     responses), fallbacks.
   test_exa_nyt.py   Offline tests for Exa and NYT (faked answers): request settings, highlights,
                     excluded words, dates, which sources run with which keys.
+  test_duplicates.py Offline tests for duplicate stories: grouping, which copy is kept,
+                    "also covered by", merging before ranking (faked Claude answers).
   test_hosting.py   Offline tests for hosting: listen address with/without PORT; .env and
                     feedback notes can't be downloaded from the site.
   test_auth.py      Offline tests for sign-in: token check (faked Supabase), every paid route
