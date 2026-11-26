@@ -31,3 +31,6 @@ out/
 
 # Local prototype data (feedback notes)
 app/data/
+
+# Eval runner: unpacked Build 3 copy
+evals/.build3/

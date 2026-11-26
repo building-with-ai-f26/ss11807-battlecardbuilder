@@ -1,0 +1,53 @@
+{
+  "_about": "The stories a PR professional (the builder) picked by hand for the week of Nov 23-26, 2026, one sample newsletter per client. Used as the answer key for eval cases 1-3. Never upload these as a client's past newsletters during the eval: the profile would then contain this week's headlines.",
+  "Convera": {
+    "FX": [
+      "Goldman Says Dollar 'Has Some Fight' Left on Rates Path (Bloomberg)",
+      "Canadian Dollar weakens as markets weigh Fed and BoC rate hike prospects (FX Street)",
+      "Yen, Swiss franc gain as dollar slips in volatile AI-driven session (Reuters)"
+    ],
+    "B2B Payments": [
+      "Fed president pitches FedNow (Payments Dive)",
+      "StraitsX and OCBC pilot stablecoin B2B payments into bank accounts (The Paypers)",
+      "83% of B2B Platforms Now Offer Embedded Payments (PYMNTS)"
+    ],
+    "Macroeconomy": [
+      "Stocks Slump Again as Investors Fret About A.I., Tariffs and Inflation (NYT)",
+      "UK Posts Smaller Than Forecast Budget Deficit as Taxes Hold Up (Bloomberg)",
+      "Trump's new tariffs aim to prise global trade from China's grip (Reuters)"
+    ]
+  },
+  "Greenhouse": {
+    "Economy": [
+      "They graduated college, but they haven't been able to use their degrees (Washington Post)",
+      "1m+ missing jobs (Axios)",
+      "What a new Congress could mean for the workplace (HR Brew)"
+    ],
+    "Hiring Trends": [
+      "More AI jobs are coming. That's one of the big hiring trends in 2027. (MarketWatch)",
+      "1 in 5 Workers May Bolt When Hiring Rebounds. This Is What Could Make Them Stay (Inc Magazine)",
+      "A wave of 'pent-up quits' could boost turnover in the job market, expert says (CNBC Make It)"
+    ],
+    "DEI": [
+      "Jensen Huang's reinstatement as CEO sounds alarm to employees: 'The rules do not apply' (HR Brew)",
+      "Companies with formal diversity programming have better employee branding and public reputation (HR Brew)"
+    ]
+  },
+  "Ledger": {
+    "Cold Wallets": [
+      "Vitalik Buterin says open-source chip designs could help prevent hardware wallet attacks (Crypto Briefing)",
+      "Ethereum wallets holding $72 billion ETH are under threat of a future quantum attack (CoinDesk)",
+      "How To Secure Your Crypto in 2026: Wallets, Scams, and Cold Storage (CoinMarketCap)"
+    ],
+    "Crypto Markets": [
+      "Bitcoin Tops $60,000 as Risk Assets Rise in Holiday Trading (Bloomberg)",
+      "Crypto Market Today, Nov. 25: Bitcoin, Ethereum, and Solana as Short Liquidations Fuel Fragile Rebound (Motley Fool)",
+      "Live updates: Bitcoin climbs from lows as markets bounce from big early declines (CoinDesk)"
+    ],
+    "Crypto Regulation": [
+      "Bill to lock up U.S. government bitcoin for 20 years advances to full House (CoinDesk)",
+      "UK plans strict rules for crypto DeFi sector (FT)",
+      "Sens. Warren, Van Hollen lead push to scrap SEC's Regulation Crypto and innovation exemption (The Block)"
+    ]
+  }
+}
