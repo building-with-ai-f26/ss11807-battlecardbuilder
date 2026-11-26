@@ -106,14 +106,17 @@ class ApiRouteTests(unittest.TestCase):
 
     def test_api_routes_need_sign_in(self):
         with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
-             mock.patch.object(server, "fetch_news") as fetch_news, mock.patch.object(server, "summarize_pdf") as pdf:
+             mock.patch.object(server, "fetch_news") as fetch_news, mock.patch.object(server, "summarize_pdf") as pdf, \
+             mock.patch.object(server, "summarize_link") as link:
             for path, method, body in [("/api/news?terms=fx", "GET", None),
-                                       ("/api/pdf", "POST", b"%PDF-1.4")]:
+                                       ("/api/pdf", "POST", b"%PDF-1.4"),
+                                       ("/api/article", "POST", b'{"url": "https://coindesk.com/x"}')]:
                 for token in (None, "not-a-real-token"):
                     status, data = self.call(path, method, body, token)
                     self.assertEqual(status, 401, f"{method} {path} token={token}")
             fetch_news.assert_not_called()  # no Claude or GNews spending without a sign-in
             pdf.assert_not_called()
+            link.assert_not_called()
 
     def test_api_refuses_when_sign_in_not_set_up(self):
         with mock.patch.dict(os.environ, {"SUPABASE_URL": "", "SUPABASE_PUBLISHABLE_KEY": ""}):
@@ -136,19 +139,22 @@ class ApiRouteTests(unittest.TestCase):
         self.assertEqual(status, 404)
 
     def test_paid_routes_are_rate_limited_per_user(self):
-        limits = {"news": (2, 3600), "pdf": (1, 3600)}
+        limits = {"news": (2, 3600), "pdf": (1, 3600), "article": (1, 3600)}
         with mock.patch.dict(os.environ, FAKE_ENV), mock.patch.object(server, "verify_user", self.fake_verify), \
              mock.patch.dict(server.RATE_LIMITS, limits), \
              mock.patch.object(server, "fetch_news", return_value=([], {"used": False}, {})) as fetch_news, \
              mock.patch.object(server, "summarize_pdf", return_value={"headline": "h", "source": "", "summary": "s", "cost_usd": 0}), \
-             mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test"}):
+             mock.patch.object(server, "summarize_link", return_value={"headline": "h", "source": "", "summary": "s", "cost_usd": 0}), \
+             mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test", "EXA_API_KEY": "test"}):
             news = [self.call("/api/news?terms=fx", token="token-a")[0] for _ in range(3)]
             other_user = self.call("/api/news?terms=fx", token="token-b")[0]
             pdf = [self.call("/api/pdf", "POST", b"%PDF-1.4", token="token-a")[0] for _ in range(2)]
+            article = [self.call("/api/article", "POST", b'{"url": "https://coindesk.com/x"}', token="token-a")[0] for _ in range(2)]
             status, data = self.call("/api/news?terms=fx", token="token-a")
         self.assertEqual(news, [200, 200, 429])
         self.assertEqual(other_user, 200)          # limits are per user
         self.assertEqual(pdf, [200, 429])
+        self.assertEqual(article, [200, 429])
         self.assertIn("Limit reached", data["error"])
         self.assertEqual(fetch_news.call_count, 3)  # 2 for A + 1 for B; refused requests spend nothing
 

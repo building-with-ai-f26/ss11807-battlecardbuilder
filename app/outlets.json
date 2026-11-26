@@ -32,5 +32,32 @@
     "cointelegraph.com": "Cointelegraph",
     "paymentsdive.com": "Payments Dive",
     "americanbanker.com": "American Banker"
-  }
+  },
+  "_paywalled_about": "Outlets behind a paywall. Press Pass never fetches their full text: their summaries come only from the short public excerpt search returns. To summarize one you subscribe to, upload a PDF. Add or remove freely.",
+  "paywalled": [
+    "wsj.com",
+    "nytimes.com",
+    "ft.com",
+    "bloomberg.com",
+    "barrons.com",
+    "economist.com",
+    "theinformation.com",
+    "washingtonpost.com"
+  ],
+  "_press_release_wires_about": "Press-release services. Articles from these sites are never used: Press Pass is for news coverage, not companies' own announcements. News outlets' reports of a product launch are still welcome. Add or remove freely.",
+  "press_release_wires": [
+    "prnewswire.com",
+    "businesswire.com",
+    "globenewswire.com",
+    "accesswire.com",
+    "newswire.com",
+    "einpresswire.com",
+    "prweb.com",
+    "newsfilecorp.com",
+    "prlog.org",
+    "openpr.com",
+    "issuewire.com",
+    "newsdirect.com",
+    "stocktitan.net"
+  ]
 }

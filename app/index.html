@@ -143,6 +143,8 @@
     .tag.score { color: #5b21b6; background: #ede9fe; }
     .pdf-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
     .pdf-status { font-size: 13px; color: var(--muted); }
+    .pdf-row input[type=url] { flex: 1; min-width: 180px; margin: 0; }
+    #link-status { display: block; margin: -4px 0 12px; }
     .ai-disclaimer { font-size: 13px; color: var(--muted); background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
     .status.ai { color: #5b21b6; }
     .tag.other { color: #374151; background: #f3f4f6; }
@@ -299,7 +301,7 @@ americanbanker.com</textarea>
       <details class="manual" id="manual-box" open>
         <summary>Add an article manually</summary>
         <form id="manual-form">
-          <p class="hint" style="margin-top:-6px">For paywalled or hand-picked stories the search missed. Manual articles are included in the newsletter and never filtered.</p>
+          <p class="hint" style="margin-top:-6px">For paywalled or hand-picked stories the search missed. Manual articles are included in the newsletter and never filtered. Paste a link and click <strong>Fill from link</strong>: AI reads the article and fills in the headline, source and summary. Paywalled outlets (WSJ, NYT, FT…) can't be read from a link; upload a PDF for those.</p>
           <label for="manual-pdf">PDF of the article <span class="optional">(optional, for paywalled articles)</span></label>
           <p class="hint">Save the article as a PDF from your browser (File → Print → Save as PDF), then click Read PDF. AI fills in the headline, source and summary for you to check. The PDF is not saved.</p>
           <div class="pdf-row">
@@ -310,7 +312,11 @@ americanbanker.com</textarea>
           <div class="manual-grid">
             <div>
               <label for="manual-url">Article URL</label>
-              <input type="url" id="manual-url" placeholder="https://..." />
+              <div class="pdf-row">
+                <input type="url" id="manual-url" placeholder="https://..." />
+                <button type="button" id="fill-link">Fill from link</button>
+              </div>
+              <span class="pdf-status" id="link-status"></span>
             </div>
             <div>
               <label for="manual-category">Category</label>
@@ -319,9 +325,9 @@ americanbanker.com</textarea>
           </div>
           <label for="manual-source">Source <span class="optional">(optional; defaults to the website)</span></label>
           <input type="text" id="manual-source" placeholder="e.g., The Wall Street Journal" />
-          <label for="manual-headline">Headline</label>
+          <label for="manual-headline">Headline <span class="optional">(filled for you by Fill from link)</span></label>
           <input type="text" id="manual-headline" />
-          <label for="manual-summary">Summary <span class="optional">(optional)</span></label>
+          <label for="manual-summary">Summary <span class="optional">(optional; left blank, AI writes one from the link when it can)</span></label>
           <textarea class="field" id="manual-summary" rows="3"></textarea>
           <p class="error" id="manual-error" hidden></p>
           <button type="submit">Add article</button>
@@ -405,7 +411,7 @@ americanbanker.com</textarea>
     function scoreParts(a) {
       const p = a.relevance_parts;
       if (!p || a.relevance == null) return "";
-      return ` <span class="parts">${a.relevance}/10 · topic ${p.topic_fit}/4 · client ${p.client_impact}/2 · news ${p.newsworthiness}/2 · source ${p.source_format}/2${p.excluded_format ? " · opinion/podcast/sponsored, capped" : ""}</span>`;
+      return ` <span class="parts">${a.relevance}/10 · topic ${p.topic_fit}/4 · client ${p.client_impact}/2 · news ${p.newsworthiness}/2 · source ${p.source_format}/2${p.excluded_format ? " · press release/opinion/podcast/sponsored, capped" : ""}</span>`;
     }
 
     function filterReason(article) {
@@ -666,7 +672,8 @@ americanbanker.com</textarea>
             ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText} ·
             <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
           </p>
-          ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>` : ""}
+          ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>`
+            : a.summaryNote ? `<p class="summary meta">${escapeHtml(a.summaryNote)}</p>` : ""}
           ${a.reason ? `<p class="why"><span class="why-label">${a.status === "filtered" ? "Why it was set aside" : "Why it's here"}:</span> ${escapeHtml(a.reason)}${scoreParts(a)}</p>` : ""}
           ${a.also_covered && a.also_covered.length ? `<p class="meta also-covered">Also covered by: ${a.also_covered.map((o) =>
               `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${escapeHtml(o.source)}</a>`).join(", ")}</p>` : ""}
@@ -723,10 +730,21 @@ americanbanker.com</textarea>
             const cost = search.cost_usd ? ` · $${search.cost_usd.toFixed(4)}` : "";
             const failed = search.failed && search.failed.length ? ` (couldn't reach: ${search.failed.join(", ")})` : "";
             status += `<p class="status">Searched ${escapeHtml(search.sources.join(", "))}${cost}${escapeHtml(failed)}</p>`;
+            const nonEnglish = (search.non_english_dropped || 0) + (ai.non_english_dropped || 0);
+            const skipped = [
+              nonEnglish ? `${nonEnglish} non-English article${nonEnglish === 1 ? "" : "s"}` : "",
+              search.press_releases_dropped ? `${search.press_releases_dropped} press release${search.press_releases_dropped === 1 ? "" : "s"}` : ""
+            ].filter(Boolean);
+            if (skipped.length) status += `<p class="status">Left out ${skipped.join(" and ")}</p>`;
           }
           if (ai.used) {
             const merged = ai.duplicates_merged ? ` · merged ${ai.duplicates_merged} duplicate${ai.duplicates_merged === 1 ? "" : "s"} of the same story` : "";
             status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries${merged} · $${ai.cost_usd.toFixed(4)}</p>`;
+            const full = ai.full_text_summaries ? `${ai.full_text_summaries} summar${ai.full_text_summaries === 1 ? "y" : "ies"} written from the full article` : "";
+            const paywalled = ai.paywalled ? `${ai.paywalled} from paywalled outlet${ai.paywalled === 1 ? "" : "s"} (summary from the public excerpt only)` : "";
+            const fullFail = ai.full_text_error ? "couldn't fetch full text this time, so summaries are from excerpts" : "";
+            const parts = [full, paywalled, fullFail].filter(Boolean);
+            if (parts.length) status += `<p class="status">${escapeHtml(parts.join(" · "))}</p>`;
           } else if (ai.error) {
             status += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
           }
@@ -883,12 +901,64 @@ americanbanker.com</textarea>
         status: "included"
       };
       state.order.push(id);
-      track("article_added_manually", { from_pdf: pdfUsed });
+      const article = state.articles[id];
+      if (!article.summary && !pdfUsed) {
+        article.summaryNote = "Writing a summary from the link…";
+        readLink(url).then((data) => {
+          if (data.paywalled) article.summaryNote = `${data.source} is paywalled, so no summary was written. Upload a PDF to summarize it.`;
+          else { article.summary = data.summary; article.summaryNote = ""; }
+          track("manual_summary", { ok: true, paywalled: !!data.paywalled, cost_usd: data.cost_usd || 0 });
+        }).catch((err) => {
+          article.summaryNote = `No summary: ${err.message}`;
+          track("manual_summary", { ok: false });
+        }).finally(renderResults);
+      }
+      track("article_added_manually", { from_pdf: pdfUsed, from_link: linkUsed });
       $("manual-url").value = $("manual-headline").value = $("manual-summary").value = $("manual-source").value = "";
       $("manual-pdf").value = "";
-      $("pdf-status").textContent = "";
-      pdfUsed = false;
+      $("pdf-status").textContent = $("link-status").textContent = "";
+      pdfUsed = linkUsed = false;
       renderResults();
+    });
+
+    // Fill from link: the server reads the article (free outlets only; paywalled
+    // ones are never fetched) and Claude returns headline, source and summary.
+    let linkUsed = false;
+    async function readLink(url) {
+      const response = await PressPassAuth.apiFetch("/api/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+      return data;
+    }
+    $("fill-link").addEventListener("click", async () => {
+      const url = $("manual-url").value.trim();
+      const status = $("link-status");
+      if (!isWebUrl(url)) { status.textContent = "Paste a full article URL first."; return; }
+      const button = $("fill-link");
+      button.disabled = true;
+      status.textContent = "Reading the article… (about 5–15 seconds)";
+      try {
+        const data = await readLink(url);
+        if (data.source && !$("manual-source").value.trim()) $("manual-source").value = data.source;
+        if (data.paywalled) {
+          status.textContent = `${data.source} is paywalled, so Press Pass doesn't read it. Upload a PDF above, or type the headline and summary.`;
+        } else {
+          $("manual-headline").value = data.headline;
+          $("manual-summary").value = data.summary;
+          linkUsed = true;
+          status.textContent = `Done · $${data.cost_usd.toFixed(4)}. Check the fields, then click Add article.`;
+        }
+        track("link_read", { ok: true, paywalled: !!data.paywalled, cost_usd: data.cost_usd || 0 });
+      } catch (err) {
+        status.textContent = `Couldn't read the article: ${err.message}`;
+        track("link_read", { ok: false });
+      } finally {
+        button.disabled = false;
+      }
     });
 
     // Read PDF: send the file to the local server, which asks Claude for the
