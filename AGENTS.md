@@ -3,62 +3,79 @@
 > Give this file to your coding agent and check that it is using these instructions. Keep the stack, commands, and ground rules current.
 
 ## 1. Project Overview
-- **What this repo builds:** Press Pass, a newsletter builder for PR agencies. It gathers this week's news for each of a client's categories, has Claude score each article's relevance and write a short summary, and turns the articles a person approves into an email-ready draft.
+- **What this repo builds:** Press Pass, a newsletter builder for PR agencies. It gathers this week's news for each of a client's categories, has Claude score each article's relevance (with a reason) and write a summary from the article text, and turns the articles a person approves into an email-ready draft.
 - **Primary user & core workflow:** An account person at a PR agency who writes a weekly client news roundup. They enter the client, priority sources and categories, review the AI-ranked articles (reorder, remove with feedback, add paywalled ones by hand), then copy the draft into email. See the living PRD in `docs/index.html`.
 - **Tech stack:** Plain HTML/CSS/JS page (`app/index.html`) + Python 3.9+ standard-library server (`app/server.py`). News comes from the Exa search API (main source when `EXA_API_KEY` is set: one search limited to the client's priority sources, one open search, both last 7 days with highlights), the NYT Article Search API and publisher RSS feeds; without an Exa key it falls back to Google News RSS and the GNews API; scoring and summaries come from Claude Haiku 5.5 (`claude-haiku-5-5`) through a direct HTTPS call. No packages to install. Sign-in and saved data: Supabase (Auth + Postgres with Row Level Security); the browser loads `supabase-js` 2.119.0 from the jsDelivr CDN, pinned with an SRI integrity hash (use `dist/umd/supabase.js`, never the generated `.min.js`; recompute the hash when upgrading). Analytics: PostHog on the app, the sign-in page and the Product Page; signed-in users are identified by Supabase user id, never email.
 
 ## 2. Project Structure
 ```
 app/
-  index.html        The app: 3 steps (set up → review articles → copy draft), saved clients,
-                    past newsletters, sign-out. Needs a login. Includes PostHog events.
-  signin.html       Sign in / create account (email + password).
+  index.html        The app: masthead, Past editions sidebar, 3 steps (I Setup → II Review →
+                    III Draft), saved clients with a "What this client likes" profile learned
+                    from uploaded past newsletters, the "Add a story" bar, sign-out. Newspaper
+                    styling (mockup: docs/mockups/phase7-newspaper.html). Includes PostHog events.
+  signin.html       Sign in / create account (email + password), same masthead.
   auth.js           Shared sign-in helpers: Supabase client, login redirect, API calls with the
                     user's token, PostHog identify/reset.
   server.py         Local server. GET /api/config gives the browser the Supabase URL and
-                    publishable key. Every /api route except config needs a valid sign-in token.
-                    GET /api/news searches all sources, drops articles older
-                    than 7 days, removes exact duplicates, then asks Claude to score and summarize.
-                    In the same Claude call each article gets same_story_as; collapse_duplicates()
-                    keeps one article per story (priority outlet, then fullest text, then earliest)
-                    and lists the others as also_covered. Claude also returns a one-sentence reason;
-                    rank_by_relevance() keeps articles with >= 7/10 and topic_fit >= 3 (MIN_RELEVANCE,
-                    MIN_TOPIC_FIT) and sends the rest to the page's filtered pile with cutoff_reason.
-                    fetch_removed_examples() reads the user's own recent feedback (their token, RLS)
-                    and Claude gets up to 20 as examples of what they don't want. The page also sets aside an article that
-                    is already in another category (same link or headline).
-                    POST /api/pdf sends an uploaded PDF of a paywalled article to Claude
-                    and returns its headline, source and summary (the PDF is not saved).
-                    /api/news and /api/pdf have per-user hourly limits (RATE_LIMITS: 30 and 10).
-                    Listens on 127.0.0.1:8000 locally, 0.0.0.0:$PORT on a host (listen_address).
+                    publishable key. Every other /api route needs a valid sign-in token.
+                    GET /api/news searches all sources (Exa priority + open search, NYT, feeds),
+                    drops articles older than 7 days, mostly non-Latin text (looks_non_english)
+                    and press-release services (is_press_release_wire), removes exact duplicates,
+                    then asks Claude to score and summarize. In the same Claude call each article
+                    gets the rubric parts, a reason, english, and same_story_as;
+                    collapse_duplicates() keeps one article per story (priority outlet, then
+                    fullest text, then earliest) and lists the others as also_covered.
+                    rank_by_relevance() keeps articles with >= 7/10 and topic_fit >= 3
+                    (MIN_RELEVANCE, MIN_TOPIC_FIT); the rest go to the page's filtered pile with
+                    cutoff_reason. fetch_removed_examples() reads the user's own recent feedback
+                    (their token, RLS) and Claude gets up to 20 as examples; the client profile
+                    (learned_profile) is passed in too. add_full_text_summaries() then fetches the
+                    finalists' text from Exa /contents (never for paywalled outlets) and Claude
+                    rewrites their summaries in 2-3 sentences.
+                    POST /api/pdf: an uploaded PDF of a paywalled article → headline, source,
+                    summary (not saved).
+                    POST /api/article: one manually added link → headline, source, summary
+                    (free outlets only; paywalled ones answer paywalled: true, never fetched).
+                    POST /api/newsletter: one past newsletter (PDF or .docx, base64) → updated
+                    client profile + outlets it cites (not saved; .doc files get a Save As
+                    .docx message).
+                    Per-user hourly limits (RATE_LIMITS): news 30, pdf 10, article 20,
+                    newsletter 20. Listens on 127.0.0.1:8000 locally, 0.0.0.0:$PORT on a host.
   feeds.json        Publisher RSS feeds checked on every search (edit freely).
-  outlets.json      Readable outlet names by domain (Exa returns only a web address). Edit freely.
+  outlets.json      Readable outlet names by domain, the "paywalled" list (never fetched), and
+                    the "press_release_wires" list (never used). Edit freely.
   data/             Old local feedback notes from before Supabase (git-ignored, never served).
                     New notes go to the Supabase feedback table, saved by the page.
 supabase/
-  schema.sql        Tables (client_profiles, newsletters, feedback) and Row Level Security
-                    policies (feedback: read/add/delete own only; no edits).
+  schema.sql        Tables (client_profiles incl. learned_profile, newsletters, feedback) and
+                    Row Level Security policies (feedback: read/add/delete own only; no edits).
                     Write limits per account (trigger enforce_write_limits): 60/60/300 new rows
                     an hour and 500/1,000/5,000 in total; created_at is set by the database.
                     Run it in the Supabase SQL Editor; safe to re-run.
 docs/
   index.html        Product Page (GitHub Pages): pitch, screenshots, living PRD, build log.
-  prototype-1/, prototype-2/   Screenshots for the Product Page.
+  prototype-1/ … prototype-3/   Screenshots for the Product Page.
+  mockups/          Design mockups shown to the human before a redesign.
 tests/
-  test_sources.py   Offline tests: feed parsing, search-term matching, 7-day cutoff,
-                    duplicate removal, Claude step and PDF reading (with fake
-                    responses), fallbacks.
-  test_exa_nyt.py   Offline tests for Exa and NYT (faked answers): request settings, highlights,
-                    excluded words, dates, which sources run with which keys.
-  test_scoring.py   Offline tests for scoring: reasons, cutoff, priority/age markers in the prompt,
-                    reading the user's own past removals (faked Supabase and Claude).
-  test_duplicates.py Offline tests for duplicate stories: grouping, which copy is kept,
-                    "also covered by", merging before ranking (faked Claude answers).
-  test_hosting.py   Offline tests for hosting: listen address with/without PORT; .env and
-                    feedback notes can't be downloaded from the site.
-  test_auth.py      Offline tests for sign-in: token check (faked Supabase), every paid route
-                    refuses requests without a valid token, /api/config never sends a secret.
-SECURITY.md         Security audit (Build 3): what was checked on the live site, found, fixed, and what is left.
+  test_sources.py   Feed parsing, search-term matching, 7-day cutoff, duplicate removal,
+                    Claude step and PDF reading (fake responses), fallbacks.
+  test_exa_nyt.py   Exa and NYT (faked answers): request settings, highlights, excluded words,
+                    dates, which sources run with which keys.
+  test_scoring.py   Scoring: reasons, cutoff, priority/age markers in the prompt, reading the
+                    user's own past removals (faked Supabase and Claude).
+  test_duplicates.py Duplicate stories: grouping, which copy is kept, "also covered by".
+  test_summaries.py Full-text summaries and the paywall rule: paywalled links never sent to
+                    Exa, failures keep excerpt summaries, Fill from link.
+  test_content_rules.py English only and no press releases (every source, Exa request, Claude flag).
+  test_past_newsletters.py Reading .docx/PDF, .doc refusal, zip-size guard, profile in the
+                    scoring prompt, /api/newsletter sign-in and rate limit.
+  test_hosting.py   Listen address with/without PORT; .env and feedback notes can't be downloaded.
+  test_auth.py      Sign-in: token check (faked Supabase), every paid route refuses requests
+                    without a valid token and is rate limited, /api/config never sends a secret.
+  live_rls_check.py Not run by unittest: checks Row Level Security against the real Supabase
+                    (--server, --site URL, --limits).
+SECURITY.md         Security audit: what was checked on the live site, found, fixed, and what is left.
 .env.example        Names of the API keys the app reads. Copy to .env; never commit .env.
 ```
 
@@ -73,13 +90,14 @@ SECURITY.md         Security audit (Build 3): what was checked on the live site,
 - **Run locally:** `python3 app/server.py` from the repo root, then open http://localhost:8000 (Ctrl+C to stop). The first lines printed say which sources (Exa, NYT, or Google News/GNews), Claude scoring and sign-in are on.
 - **Run deterministic tests:** `python3 -m unittest discover tests` (no internet or keys needed; costs nothing).
 - **Run model evals:** Not built yet (planned for Build 4).
-- **Cost:** Exa search about $0.025 per category (priority search: 10 results; open search: 20 results, so smaller outlets get a look; both with highlights; Exa's own estimate is shown on the page), so about $0.08 per 3-category newsletter. Up to 30 candidates per category go to Claude. NYT is free. Claude: about $0.001–$0.0024 per category searched (20 articles scored with the four-part rubric), about $0.003–$0.007 per 3-category newsletter. Shown on the page under each category.
+- **Cost (measured Nov 26):** Exa about $0.027–$0.029 per category (priority search: 10 results; open search: 20 results; both with highlights; plus up to 6,000 characters of article text for each free finalist). Claude about $0.004–$0.005 per category (30 candidates scored with the four-part rubric, plus one call rewriting the finalists' summaries). So about $0.10 per 3-category newsletter, almost all Exa. Extras: reading a past newsletter about $0.0003, Fill from link or a PDF about $0.001 each. NYT is free. Each section's details line on the page shows its cost.
 
 ## 4. Ask me first
 Stop and ask the human before any of these, even mid-task:
 - Deleting data or changing the database (anything in `supabase/schema.sql`, or running SQL).
 - Keys, secrets and permissions (adding or changing keys, Supabase auth settings, RLS policies, who can sign up).
-- Anything that costs money (new paid APIs, raising rate limits, bigger result counts, paid hosting plans).
+- Anything that costs money (new paid APIs, raising rate limits, bigger result counts, more full text per article, paid hosting plans).
+- Anything that reads paywalled content: the paywall rule (PRD) is fixed — never archive sites, logins or stored publisher passwords.
 - Pushing to `main` (it deploys the live site).
 
 ## 5. Shipping

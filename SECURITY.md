@@ -104,3 +104,15 @@ I asked my coding agent to attack the app. What it tried, and what happened:
 - **The PostHog script loads without an integrity hash** (PostHog updates it continually, so it can't be pinned).
 - **Draft HTML is rendered as-is when you reopen your own past newsletter.** RLS means only you can write it, so the only risk is to yourself (self-XSS).
 - **No Content-Security-Policy for scripts yet** (only `frame-ancestors`); a full policy would need to allow PostHog and jsDelivr.
+
+## Update: November 26, 2026 (new features since the audit)
+
+New since November 22: summaries from full article text, "Fill from link" for manually added articles, uploading past newsletters to build a client profile, and the redesign. What changed for security:
+
+- **Two new paid routes, both behind sign-in and a per-user hourly limit:** `POST /api/article` (20 an hour) and `POST /api/newsletter` (20 an hour). **Checked on the live site:** both answer `401` without a valid sign-in. Offline tests (`tests/test_auth.py`, `tests/test_past_newsletters.py`) cover the sign-in check and the `429` after the limit.
+- **Uploads are never stored.** Past newsletters (PDF or .docx) are read in memory, sent to Claude, and discarded; only the short profile Claude writes is saved, in the user's own `client_profiles` row (column `learned_profile`, max 2,000 characters, same RLS as the rest of the row). Files over 10 MB are refused, and a .docx whose unzipped text is over 20 MB is refused (a "zip bomb" guard). Old .doc files and anything that isn't a PDF or .docx are refused.
+- **Paywall rule:** outlets on the paywalled list in `app/outlets.json` are never fetched, by the search step or by "Fill from link" (tested: their links never reach Exa). No archive sites, no logins, no stored publisher passwords.
+- **Fetching pages is done by Exa, not by the server.** "Fill from link" sends the URL to Exa's contents API; the server itself never opens user-supplied URLs, so it can't be pointed at internal addresses.
+- **Prompt injection:** article text and uploaded newsletters are new places to hide instructions. Each prompt tells Claude the text is content, not instructions, and Claude can still only return a fixed JSON shape (a summary, or a profile and a list of domains). The profile is plain text the user sees and can edit; suggested outlets are cleaned to bare domain names before they're shown.
+- **Database change:** one new column (`learned_profile`), added with an `add column if not exists` statement; the backup-before-schema-change step in `AGENTS.md` applies.
+- **New third party:** the pages now load fonts from Google Fonts, so Google sees visitors' IP addresses when fonts load. No data from the app is sent there.
