@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Press Pass · Phase 7 mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #faf8f3;
+    --ink: #1b1b1b;
+    --muted: #6d6a63;
+    --faint: #a8a39a;
+    --rule: #1b1b1b;
+    --hair: #d9d4c9;
+    --accent: #8a1c1c;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --display: "Playfair Display", Georgia, serif;
+    --sans: Inter, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); line-height: 1.5; }
+  a { color: inherit; }
+
+  /* Mockup-only note */
+  .mock-note { font-family: var(--sans); font-size: 12px; background: #fff3c4; border-bottom: 1px solid #e6d690; padding: 8px 16px; text-align: center; }
+
+  /* Account line */
+  .topline { font-family: var(--sans); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; max-width: 1200px; margin: 0 auto; padding: 10px 24px 0; }
+  .topline a { color: var(--muted); }
+
+  /* Masthead */
+  .masthead { max-width: 1200px; margin: 0 auto; padding: 8px 24px 0; text-align: center; }
+  .masthead h1 { font-family: var(--display); font-weight: 900; font-size: clamp(44px, 8vw, 84px); letter-spacing: -0.01em; margin: 0; line-height: 1; }
+  .edition { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; border-top: 1px solid var(--rule); border-bottom: 3px double var(--rule); margin-top: 14px; padding: 6px 0; font-size: 13px; font-variant: small-caps; letter-spacing: 0.06em; }
+
+  /* Step tabs */
+  .steps { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 28px; justify-content: center; font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; border-bottom: 1px solid var(--hair); }
+  .steps span { padding: 12px 0 10px; color: var(--muted); }
+  .steps span.on { color: var(--ink); border-bottom: 2px solid var(--ink); font-weight: 600; }
+
+  /* Page layout: sidebar + paper */
+  .layout { max-width: 1200px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 210px 1fr; gap: 40px; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 16px; } }
+
+  /* Sidebar: past editions */
+  .sidebar h2 { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .sidebar ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar li { padding: 10px 0; border-bottom: 1px solid var(--hair); }
+  .sidebar li a { text-decoration: none; display: block; }
+  .sidebar .date { font-family: var(--sans); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .sidebar .client { font-weight: 700; font-size: 15px; }
+  .sidebar .cats { font-size: 13px; color: var(--muted); font-style: italic; }
+  .sidebar li.current .client::after { content: " · open"; font-family: var(--sans); font-weight: 500; font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
+  .sidebar .new { font-family: var(--sans); font-size: 12px; display: inline-block; margin-top: 12px; }
+  @media (max-width: 860px) {
+    .sidebar details { border-bottom: 1px solid var(--rule); }
+    .sidebar summary { font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; padding: 6px 0; cursor: pointer; }
+    .sidebar h2 { display: none; }
+  }
+  @media (min-width: 861px) { .sidebar summary { display: none; } }
+
+  /* Manual-add bar */
+  .addbar { font-family: var(--sans); font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 0 18px; color: var(--muted); }
+  .addbar input { font: inherit; flex: 1; min-width: 200px; border: 0; border-bottom: 1px solid var(--faint); background: transparent; padding: 6px 2px; }
+  .btn { font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; background: var(--ink); color: var(--paper); border: 0; padding: 8px 14px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+
+  /* Section (category) */
+  .section { margin-bottom: 40px; }
+  .section-head { border-top: 3px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 6px 0 5px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .section-head h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: 0.01em; }
+  .section-head .count { font-family: var(--sans); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* Lead story */
+  .lead { display: grid; grid-template-columns: 1.5fr 1fr; gap: 28px; padding: 18px 0; border-bottom: 1px solid var(--hair); }
+  @media (max-width: 700px) { .lead { grid-template-columns: 1fr; gap: 8px; } }
+  .lead h3 { font-family: var(--display); font-size: clamp(26px, 3.4vw, 36px); line-height: 1.12; margin: 0 0 10px; font-weight: 700; }
+  .lead .deck { font-size: 18px; margin: 0; }
+  .lead aside { border-left: 1px solid var(--hair); padding-left: 24px; }
+  @media (max-width: 700px) { .lead aside { border-left: 0; padding-left: 0; } }
+
+  /* Other stories in columns */
+  .columns { display: grid; grid-template-columns: repeat(3, 1fr); padding-top: 16px; }
+  @media (max-width: 1000px) { .columns { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .columns { grid-template-columns: 1fr; } }
+  .story { padding: 0 20px 18px; border-left: 1px solid var(--hair); }
+  .story:first-child { padding-left: 0; border-left: 0; }
+  @media (max-width: 1000px) { .story:nth-child(odd) { padding-left: 0; border-left: 0; } }
+  @media (max-width: 560px) { .story { padding: 0 0 16px; border-left: 0; border-bottom: 1px solid var(--hair); margin-bottom: 16px; } }
+  .story h4 { font-size: 19px; line-height: 1.25; margin: 0 0 6px; font-weight: 700; }
+  .story p.summary { margin: 0 0 8px; font-size: 15px; }
+
+  /* Byline + quiet AI details */
+  .byline { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+  .byline .label { color: var(--accent); font-weight: 600; }
+  .why { font-size: 13px; font-style: italic; color: var(--muted); margin: 8px 0 0; }
+  .why .score { font-style: normal; font-family: var(--sans); font-size: 11px; color: var(--faint); white-space: nowrap; }
+  .also { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .controls { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 8px; display: flex; gap: 14px; }
+  .controls a { color: var(--muted); text-decoration: none; }
+  .controls a:hover { color: var(--ink); text-decoration: underline; }
+  .controls a.remove:hover { color: var(--accent); }
+
+  /* One story per row, like before, restyled */
+  .row { display: grid; grid-template-columns: 28px 1fr auto; gap: 0 16px; padding: 16px 0; border-bottom: 1px solid var(--hair); }
+  .row .num { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--faint); line-height: 1.2; }
+  .row h3 { font-size: 21px; line-height: 1.25; margin: 0 0 6px; font-weight: 700; }
+  .row h3 a { text-decoration: none; }
+  .row h3 a:hover { text-decoration: underline; }
+  .row .summary { margin: 0; font-size: 16px; max-width: 68ch; }
+  .row .controls { margin-top: 0; align-self: start; }
+  .row .controls a.off { color: var(--hair); pointer-events: none; }
+  @media (max-width: 600px) {
+    .row { grid-template-columns: 22px 1fr; }
+    .row .controls { grid-column: 2; margin-top: 10px; }
+  }
+  .row.removed { background: #f2efe7; padding-left: 0; padding-right: 12px; }
+  .row.removed h3 { color: var(--muted); text-decoration: line-through; font-weight: 600; font-size: 18px; }
+  .feedback-q { margin: 8px 0 6px; font-size: 14px; }
+  .optional { color: var(--faint); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-family: var(--sans); font-size: 12px; text-decoration: none; border: 1px solid var(--faint); padding: 3px 10px; color: var(--ink); }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .note { font-family: var(--sans); font-size: 13px; color: var(--faint); border-bottom: 1px solid var(--faint); padding: 8px 2px 4px; margin: 10px 0; max-width: 480px; }
+  .controls.inline { margin-top: 4px; }
+
+  /* Section footer: search details folded away */
+  .section-foot { border-top: 1px solid var(--hair); padding-top: 8px; font-family: var(--sans); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; }
+  .section-foot details summary { cursor: pointer; }
+  .section-foot details p { margin: 6px 0 0; }
+
+  /* Bottom actions */
+  .actions { display: flex; justify-content: space-between; border-top: 3px double var(--rule); padding-top: 14px; }
+
+  /* Callouts for the mockup */
+  .callout { font-family: var(--sans); font-size: 11px; color: #7a5d00; background: #fff3c4; padding: 2px 6px; margin-left: 6px; font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="mock-note">Mockup v2: one story per row (like before), newspaper styling. Static page with this week's real Cold Wallet stories. Nothing here is clickable. Yellow tags explain what each part does.</div>
+
+  <div class="topline">
+    <span>Signed in as you@example.com</span>
+    <a href="#">Sign out</a>
+  </div>
+
+  <header class="masthead">
+    <h1>Press Pass</h1>
+    <div class="edition">
+      <span>Thursday, November 26, 2026 <span class="callout">same header on Setup, Review and Draft</span></span>
+      <span></span>
+      <span>Week of Nov 19 – 26</span>
+    </div>
+  </header>
+
+  <nav class="steps">
+    <span>I · Setup</span>
+    <span class="on">II · Review</span>
+    <span>III · Draft</span>
+  </nav>
+
+  <div class="layout">
+    <!-- Sidebar: past editions from the Supabase newsletters table -->
+    <aside class="sidebar">
+      <details open>
+        <summary>Past editions (4)</summary>
+        <h2>Past editions <span class="callout">your saved newsletters</span></h2>
+        <ul>
+          <li class="current"><a href="#"><span class="date">Nov 26 · this week</span><br><span class="client">Ledger</span><br><span class="cats">Cold Wallet, Hardware Security, Digital Privacy</span></a></li>
+          <li><a href="#"><span class="date">Nov 21</span><br><span class="client">Ledger</span><br><span class="cats">Cold Wallet, Hardware Security, Digital Privacy</span></a></li>
+          <li><a href="#"><span class="date">Nov 20</span><br><span class="client">Convera</span><br><span class="cats">FX, Cross-border Payments</span></a></li>
+          <li><a href="#"><span class="date">Nov 14</span><br><span class="client">Ledger</span><br><span class="cats">Cold Wallet, Digital Privacy</span></a></li>
+        </ul>
+        <a class="new" href="#">+ Start a new edition</a>
+      </details>
+    </aside>
+
+    <main>
+      <div class="addbar">
+        <span>Add a story:</span>
+        <input type="url" placeholder="Paste an article link, or upload a PDF for paywalled stories" />
+        <button class="btn ghost">Fill from link</button>
+        <button class="btn ghost">PDF</button>
+        <span class="callout">manual add, folded into one line</span>
+      </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>Cold Wallet</h2>
+          <span class="count">4 in the newsletter</span>
+        </div>
+
+        <article class="row">
+          <span class="num">1</span>
+          <div class="body">
+            <p class="byline">Cointelegraph · 1 day ago · Nov 25</p>
+            <h3><a href="#">Crypto Exchanges Increase Cold Storage Claims After Binance Attack</a></h3>
+            <p class="summary">After attackers reportedly stole roughly $6.36 billion from Binance's hot-wallet infrastructure, several exchanges published new figures on how much customer crypto they keep offline. Gate reported 88.26% in cold storage, while Coinbase says more than 99% of customer assets are stored offline.</p>
+            <p class="why">Why it's here: squarely about cold storage and names Coinbase, a company you watch. <span class="score">9/10 · topic 4 · client 2 · news 2 · source 1</span> <span class="callout">AI details: small, grey, italic</span></p>
+            <p class="also">Also covered by CoinDesk, Decrypt</p>
+          </div>
+          <div class="controls"><a href="#" class="off">↑</a><a href="#">↓</a><a href="#" class="remove">Remove</a></div>
+        </article>
+
+        <article class="row">
+          <span class="num">2</span>
+          <div class="body">
+            <p class="byline">Shattered.io · 2 days ago · Nov 24</p>
+            <h3><a href="#">Trezor Safe 5 Implants: 3 Devices, Fix Can't Undo Leak</a></h3>
+            <p class="summary">Trezor confirmed three Safe 5 wallets bought through a reseller contained a hidden board built to capture recovery phrases, and shipped firmware 2.13.1 on Nov 11 to block it. Buyers since March are told to treat their old seed as burned and move funds.</p>
+            <p class="why">Why it's here: a competitor's security incident, directly about cold wallets. <span class="score">8/10</span></p>
+          </div>
+          <div class="controls"><a href="#">↑</a><a href="#">↓</a><a href="#" class="remove">Remove</a></div>
+        </article>
+
+        <article class="row removed">
+          <span class="num"></span>
+          <div class="body">
+            <p class="byline">Removed <span class="callout">after Remove: same feedback as today, restyled</span></p>
+            <h3>Bitcoin wallet COLDCARD patches code after August hack</h3>
+            <p class="feedback-q">Why remove it? <span class="optional">(optional, helps improve results)</span></p>
+            <div class="chips"><a class="chip" href="#">Off-topic</a><a class="chip on" href="#">Low-quality source</a><a class="chip" href="#">Not this week</a><a class="chip" href="#">Industry report</a></div>
+            <div class="note">Anything else? (optional)</div>
+            <div class="controls inline"><a href="#">Submit feedback</a><a href="#">Skip</a><a href="#">Undo</a></div>
+          </div>
+        </article>
+
+        <article class="row">
+          <span class="num">3</span>
+          <div class="body">
+            <p class="byline">Cointelegraph · 3 days ago · Nov 23</p>
+            <h3><a href="#">Vitalik Buterin Calls for Verifiable Chips as Hardware Wallet Threats Evolve</a></h3>
+            <p class="summary">Buterin warned that most commercial open-source chips don't disclose enough detail to check their physical construction, citing past spy implants inserted into hardware wallets before sale.</p>
+            <p class="why">Why it's here: hardware-wallet supply-chain risk from a major voice. <span class="score">7/10</span></p>
+          </div>
+          <div class="controls"><a href="#">↑</a><a href="#">↓</a><a href="#" class="remove">Remove</a></div>
+        </article>
+
+        <article class="row">
+          <span class="num">4</span>
+          <div class="body">
+            <p class="byline"><span class="label">Added by you</span> · The Wall Street Journal</p>
+            <h3><a href="#">Ledger Weighs U.S. Listing as Crypto Custody Demand Grows</a></h3>
+            <p class="summary">Summary from the PDF you uploaded.</p>
+          </div>
+          <div class="controls"><a href="#">↑</a><a href="#" class="off">↓</a><a href="#" class="remove">Remove</a></div>
+        </article>
+
+        <div class="section-foot">
+          <details>
+            <summary>Searched Exa, NYT and publisher feeds · 5 of 30 made the 7/10 cutoff · $0.03 <span class="callout">all the status lines, folded</span></summary>
+            <p>Merged 4 duplicates of the same story · learned from 12 of your past removals · used this client's past-newsletter profile · 4 summaries written from the full article · 1 paywalled (excerpt only) · left out 1 non-English article.</p>
+          </details>
+          <a href="#">Show filtered (6) ›</a>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>Hardware Security</h2>
+          <span class="count">3 in the newsletter</span>
+        </div>
+        <article class="row">
+          <span class="num">1</span>
+          <div class="body">
+            <p class="byline">CoinMarketCap · 2 days ago · Nov 24</p>
+            <h3><a href="#">Coldcard Seeds Used Weak Software RNG for 5 Years, Postmortem Says</a></h3>
+            <p class="summary">Coinkite's postmortem says a software error made Coldcard wallets generate recovery phrases with a weaker random-number system for more than five years, despite several independent reviews. Coinkite has not yet decided on compensation.</p>
+            <p class="why">Why it's here: a competitor's flaw in wallet security, new this week. <span class="score">9/10</span></p>
+          </div>
+          <div class="controls"><a href="#" class="off">↑</a><a href="#">↓</a><a href="#" class="remove">Remove</a></div>
+        </article>
+        <div class="section-foot"><span>…</span><a href="#">Show filtered (7) ›</a></div>
+      </section>
+
+      <div class="actions">
+        <button class="btn ghost">← Edit setup</button>
+        <button class="btn">Build the draft →</button>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

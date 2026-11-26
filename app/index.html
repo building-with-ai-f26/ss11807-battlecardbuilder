@@ -15,220 +15,225 @@
         person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
     })
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* Newspaper look (Phase 7). One paper colour, ink, thin rules, serif type; no card boxes. */
     :root {
-      --bg: #f6f7f9;
-      --card: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --accent: #1d63dc;
-      --accent-soft: #eff6ff;
-      --keep: #15803d;
-      --keep-soft: #ecfdf3;
-      --remove: #b91c1c;
-      --remove-soft: #fef2f2;
-      --warn-bg: #fffbeb;
-      --warn-border: #fde68a;
-      --warn-text: #92400e;
+      --paper: #faf8f3;
+      --sheet: #ffffff;
+      --ink: #1b1b1b;
+      --muted: #6d6a63;
+      --faint: #a8a39a;
+      --hair: #d9d4c9;
+      --shade: #f2efe7;
+      --accent: #8a1c1c;
+      --keep: #2f5d34;
+      --warn: #7a5d00;
+      --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+      --display: "Playfair Display", Georgia, serif;
+      --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
-    header { margin-bottom: 24px; }
-    h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
-    .sub { color: var(--muted); margin: 0; }
-    .badge {
-      display: inline-block; font-size: 12px; font-weight: 600;
-      background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
-      padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
-    }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); line-height: 1.5; }
+    a { color: inherit; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+    @media (max-width: 600px) { .page { padding: 0 16px 60px; } }
 
-    /* Step indicator */
-    .steps { display: flex; gap: 8px; margin: 20px 0 24px; flex-wrap: wrap; }
-    .step {
-      flex: 1; min-width: 150px; padding: 10px 14px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--card);
-      color: var(--muted); font-size: 14px; font-weight: 600;
-    }
-    .step.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-    .step.done { color: var(--text); }
+    /* Account line, masthead, edition line */
+    .topline { font-family: var(--sans); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 10px; }
+    .masthead { text-align: center; padding-top: 6px; }
+    .masthead h1 { font-family: var(--display); font-weight: 900; font-size: clamp(44px, 8vw, 84px); letter-spacing: -0.01em; margin: 0; line-height: 1; }
+    .edition { display: grid; grid-template-columns: 1fr auto 1fr; gap: 4px 16px; border-top: 1px solid var(--ink); border-bottom: 3px double var(--ink); margin-top: 14px; padding: 6px 0; font-size: 13px; font-variant: small-caps; letter-spacing: 0.06em; }
+    .edition span:first-child { text-align: left; }
+    .edition span:last-child { text-align: right; }
+    @media (max-width: 520px) { .edition { grid-template-columns: 1fr; text-align: center; } .edition span { text-align: center !important; } .edition span:empty { display: none; } }
 
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 24px; margin-bottom: 20px;
-    }
-    h2 { font-size: 20px; margin: 0 0 16px; }
-    h3 { font-size: 17px; margin: 0 0 12px; }
+    /* Step tabs */
+    .steps { display: flex; gap: 28px; justify-content: center; font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; border-bottom: 1px solid var(--hair); }
+    .step { padding: 12px 0 10px; color: var(--muted); }
+    .step.active { color: var(--ink); border-bottom: 2px solid var(--ink); font-weight: 600; }
+    @media (max-width: 520px) { .steps { gap: 14px; font-size: 11px; letter-spacing: 0.06em; } }
 
-    label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-    .optional { font-weight: 400; color: var(--muted); }
+    .ai-disclaimer { font-size: 13px; font-style: italic; color: var(--muted); text-align: center; margin: 10px auto 0; max-width: 760px; }
+    .notice { font-family: var(--sans); background: #fff3c4; border: 1px solid #e6d690; color: var(--warn); padding: 12px 14px; margin: 16px 0 0; font-size: 14px; }
+    .notice code { background: #fff; padding: 1px 5px; }
+
+    /* Sidebar (past editions) + main column */
+    .layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 40px; padding-top: 24px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+    .sidebar h2 { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; margin: 0 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
+    .sidebar summary { display: none; }
+    @media (max-width: 860px) {
+      .sidebar details { border-bottom: 1px solid var(--ink); }
+      .sidebar summary { display: block; font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; padding: 6px 0; cursor: pointer; }
+      .sidebar h2 { display: none; }
+    }
+    .history-list { list-style: none; margin: 0; padding: 0; }
+    .history-list li { border-bottom: 1px solid var(--hair); position: relative; }
+    .history-list .open-edition { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 10px 44px 10px 0; font: inherit; color: inherit; cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .history-list .open-edition:hover .client { text-decoration: underline; }
+    .history-list .date { font-family: var(--sans); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; display: block; }
+    .history-list .client { font-weight: 700; font-size: 15px; display: block; }
+    .history-list .cats { font-size: 13px; color: var(--muted); font-style: italic; display: block; }
+    .history-list li.current .client::after { content: " · open"; font-family: var(--sans); font-weight: 500; font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
+    .history-list .delete-edition { position: absolute; top: 10px; right: 0; opacity: 0; }
+    .history-list li:hover .delete-edition, .history-list .delete-edition:focus { opacity: 1; }
+    @media (hover: none) { .history-list .delete-edition { opacity: 1; } }
+    .history-empty { font-size: 14px; color: var(--muted); font-style: italic; padding: 10px 0; }
+    #new-edition { margin-top: 12px; }
+
+    /* Headings, labels, fields */
+    h2.page-title { font-family: var(--display); font-weight: 700; font-size: 28px; margin: 0 0 18px; padding: 6px 0 5px; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); }
+    label { display: block; font-family: var(--sans); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .optional { font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; font-size: 12px; }
     input[type="text"], input[type="url"], select, textarea.field {
-      width: 100%; padding: 10px 12px; font: inherit; font-size: 15px;
-      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;
-      background: #fff;
+      width: 100%; padding: 8px 2px; font: inherit; font-size: 16px; color: var(--ink);
+      border: 0; border-bottom: 1px solid var(--faint); border-radius: 0; margin-bottom: 18px; background: transparent;
     }
-    input:focus, select:focus, textarea.field:focus { outline: 2px solid var(--accent); border-color: transparent; }
-    .hint { color: var(--muted); font-size: 13px; margin: -8px 0 16px; }
-    .error { color: var(--remove); font-size: 14px; margin: 0 0 12px; }
-    .notice {
-      background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text);
-      border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; font-size: 14px;
-    }
-    .notice code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+    textarea.field { border: 1px solid var(--hair); padding: 8px 10px; background: var(--sheet); }
+    select { border: 1px solid var(--hair); padding: 8px 10px; background: var(--sheet); }
+    input:focus, select:focus, textarea.field:focus { outline: none; border-color: var(--ink); }
+    input[type="file"] { font-family: var(--sans); font-size: 13px; }
+    .hint { color: var(--muted); font-size: 14px; margin: -2px 0 10px; }
+    .error { font-family: var(--sans); color: var(--accent); font-size: 14px; margin: 0 0 12px; }
 
+    /* Buttons: ink text in small caps; primary is solid ink */
     button {
-      font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-      padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
-      background: var(--card); color: var(--text);
+      font-family: var(--sans); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      cursor: pointer; padding: 8px 14px; border: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink);
     }
-    button:disabled { opacity: 0.4; cursor: default; }
-    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    button.small { padding: 5px 10px; font-size: 13px; }
-    .actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+    button:hover { background: var(--shade); }
+    button:disabled { opacity: 0.35; cursor: default; }
+    button.primary { background: var(--ink); color: var(--paper); }
+    button.primary:hover { background: #000; }
+    button.small { padding: 5px 10px; font-size: 11px; }
+    button.link { border: 0; background: none; padding: 0; color: var(--muted); font-size: 11px; }
+    button.link:hover { color: var(--ink); text-decoration: underline; background: none; }
+    button.link.danger:hover { color: var(--accent); }
+    .actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-top: 3px double var(--ink); padding-top: 14px; margin-top: 8px; }
+    .tally { font-family: var(--sans); color: var(--muted); font-size: 12px; }
 
-    /* Category inputs */
-    .category-row {
-      border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 0;
-      margin-bottom: 12px; background: var(--bg);
-    }
+    /* Step 1: saved clients, categories, past-newsletter upload */
+    .saved-row { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; flex-wrap: wrap; }
+    .saved-row select { flex: 1; min-width: 200px; margin: 0; }
+    .saved-status { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+    .category-row { border-top: 1px solid var(--hair); padding: 12px 0 0; }
+    .category-row:last-child { border-bottom: 1px solid var(--hair); margin-bottom: 14px; }
     .category-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .category-row-head label { margin: 0; }
-    .category-fields { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 0 10px; }
-    .category-fields label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-    .category-fields input { margin-bottom: 14px; font-size: 14px; }
+    .category-row-head label { margin: 0; font-family: var(--display); font-size: 17px; text-transform: none; letter-spacing: 0; font-weight: 700; }
+    .category-fields { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 0 18px; }
+    .category-fields label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .category-fields input { margin-bottom: 14px; font-size: 15px; }
     .category-fields .cat-about-field { grid-column: 1 / -1; }
     @media (max-width: 640px) { .category-fields { grid-template-columns: 1fr; } }
-    .remove-category { color: var(--remove); }
-    #add-category { margin-bottom: 20px; }
+    #add-category { margin-bottom: 24px; }
     textarea#priority-sources { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+    .pdf-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .pdf-status { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+    #learn-status { display: block; margin: 0 0 14px; }
+    #suggested-outlets button { margin: 6px 6px 0 0; }
 
-    /* Articles */
-    .category { margin-bottom: 28px; }
-    .status { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-    .status.fail { color: var(--remove); }
-    .status.weak {
-      color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border);
-      border-radius: 8px; padding: 8px 12px;
-    }
-    .article {
-      border: 1px solid var(--border); border-radius: 10px; padding: 16px;
-      margin-bottom: 12px; background: var(--card);
-    }
-    .article.filtered { border-style: dashed; background: var(--bg); }
-    .article.feedback-card { border-color: #fca5a5; background: var(--remove-soft); }
-    .removed-line {
-      display: flex; gap: 10px; align-items: center; justify-content: space-between;
-      border: 1px dashed var(--border); border-radius: 8px; padding: 6px 12px;
-      margin-bottom: 12px; font-size: 13px; color: var(--muted);
-    }
-    .removed-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .filtered-toggle { margin: 4px 0 12px; }
-    .headline { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-    .headline a { color: inherit; text-decoration: none; }
-    .headline a:hover { text-decoration: underline; }
-    .meta { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
-    .meta a { color: var(--accent); }
-    .tag {
-      display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-      padding: 1px 6px; border-radius: 4px; margin-right: 6px;
-    }
-    .tag.priority { color: #065f46; background: #d1fae5; }
-    .tag.score { color: #5b21b6; background: #ede9fe; }
-    .pdf-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-    .pdf-status { font-size: 13px; color: var(--muted); }
-    .pdf-row input[type=url] { flex: 1; min-width: 180px; margin: 0; }
-    #learn-status { display: block; margin: -4px 0 12px; }
-    #suggested-outlets button { margin: 4px 6px 0 0; }
-    #link-status { display: block; margin: -4px 0 12px; }
-    .ai-disclaimer { font-size: 13px; color: var(--muted); background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
-    .status.ai { color: #5b21b6; }
-    .tag.other { color: #374151; background: #f3f4f6; }
-    .tag.manual { color: #5b21b6; background: #ede9fe; }
-    .tag.report { color: #92400e; background: #fef3c7; }
-    .tag.filter { color: #fff; background: #6b7280; }
-    .summary { margin: 0 0 12px; font-size: 14px; }
-    .also-covered { margin: -6px 0 12px; }
-    .why { margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
-    .why-label { font-weight: 600; }
-    .why .parts { white-space: nowrap; opacity: 0.8; }
-    .article-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .btn-add { color: var(--keep); border-color: #86efac; }
-    .btn-remove { color: var(--remove); }
-    button.link { border: none; background: none; color: var(--accent); padding: 0; font-size: 13px; }
-    .tally { color: var(--muted); font-size: 14px; }
-
-    /* Remove-feedback box */
-    .feedback p { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
-    .feedback .feedback-headline { font-weight: 400; color: var(--muted); }
-    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-    .chip { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
-    .chip.on { background: var(--remove); color: #fff; border-color: var(--remove); }
-    .feedback textarea { margin-bottom: 10px; font-size: 14px; }
-
-    /* Manual add form */
-    .manual { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 24px; }
-    .manual-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
+    /* Step 2: condensed "Add a story" bar */
+    .addbar { font-family: var(--sans); font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--muted); }
+    .addbar-label { text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; font-weight: 600; color: var(--ink); }
+    .addbar input[type="url"] { flex: 1; min-width: 200px; margin: 0; font-family: var(--sans); font-size: 14px; }
+    #link-status { display: block; margin: 6px 0 0; min-height: 1em; }
+    .manual-form { background: var(--shade); padding: 16px 16px 4px; margin-top: 10px; }
+    .manual-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0 16px; }
     @media (max-width: 560px) { .manual-grid { grid-template-columns: 1fr; } }
-    .manual summary { cursor: pointer; font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+    .manual-buttons { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .addbar-wrap { padding-bottom: 22px; }
 
-    /* Editable email draft. Email styling itself is inline (see EMAIL_STYLES) so it survives pasting. */
-    #draft {
-      border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px;
-      min-height: 400px; margin-bottom: 16px; background: #fff;
+    /* Step 2: one section per category, one story per row */
+    .section { margin-bottom: 40px; }
+    .section-head { border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 6px 0 5px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .section-head h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 26px; }
+    .section-head .count { font-family: var(--sans); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+    .status { font-size: 14px; font-style: italic; color: var(--muted); margin: 12px 0 0; }
+    .status.fail { color: var(--accent); font-style: normal; }
+    .status.weak { color: var(--warn); }
+    .row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 0 16px; padding: 16px 0; border-bottom: 1px solid var(--hair); }
+    .row .num { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--faint); line-height: 1.2; }
+    .row h3 { font-size: 21px; line-height: 1.25; margin: 0 0 6px; font-weight: 700; }
+    .row h3 a { text-decoration: none; }
+    .row h3 a:hover { text-decoration: underline; }
+    .row .summary { margin: 0; font-size: 16px; max-width: 70ch; }
+    .row .summary.pending { font-style: italic; color: var(--muted); font-size: 14px; }
+    .byline { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 6px; }
+    .byline .label { color: var(--accent); font-weight: 600; }
+    .byline a { color: var(--muted); }
+    .why { font-size: 13px; font-style: italic; color: var(--muted); margin: 8px 0 0; max-width: 75ch; }
+    .why .parts { font-style: normal; font-family: var(--sans); font-size: 11px; color: var(--faint); white-space: nowrap; }
+    .also-covered { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+    .controls { display: flex; gap: 14px; align-items: flex-start; }
+    @media (max-width: 600px) {
+      .row { grid-template-columns: 22px minmax(0, 1fr); }
+      .row .controls { grid-column: 2; margin-top: 10px; }
     }
-    #draft:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-    #draft .dg-item { position: relative; padding-right: 100px; border-radius: 6px; }
-    #draft .dg-item:hover { background: #f9fafb; }
+    .row.filtered { opacity: 0.85; }
+    .row.filtered .num { visibility: hidden; }
+    .row.feedback-card { background: var(--shade); padding-right: 12px; }
+    .row.feedback-card h3 { color: var(--muted); text-decoration: line-through; font-weight: 600; font-size: 18px; }
+    .feedback-q { margin: 8px 0 6px; font-size: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip { text-transform: none; letter-spacing: 0; font-weight: 500; padding: 3px 10px; font-size: 12px; border-color: var(--faint); }
+    .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .feedback-card textarea { max-width: 520px; font-size: 14px; margin-bottom: 10px; }
+    .feedback-card .controls { gap: 16px; align-items: center; }
+    .removed-line { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 0 8px 44px; border-bottom: 1px solid var(--hair); font-size: 14px; color: var(--muted); font-style: italic; }
+    .removed-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .section-foot { padding-top: 8px; font-family: var(--sans); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px 16px; }
+    .section-foot details { flex: 1; min-width: 240px; }
+    .section-foot summary { cursor: pointer; }
+    .section-foot details p { margin: 6px 0 0; line-height: 1.6; }
+    .filtered-head { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 18px 0 0; padding-bottom: 4px; border-bottom: 1px solid var(--hair); }
+
+    /* Step 3: the email draft sits on a white sheet (its own styling is inline, see EMAIL_STYLES) */
+    .draft-help { font-size: 14px; font-style: italic; color: var(--muted); margin: -6px 0 14px; }
+    #draft { border: 1px solid var(--hair); padding: 28px 32px; min-height: 400px; margin-bottom: 16px; background: var(--sheet); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    @media (max-width: 600px) { #draft { padding: 18px 16px; } }
+    #draft:focus { outline: 1px solid var(--ink); outline-offset: 2px; }
+    #draft .dg-item { position: relative; padding-right: 110px; }
+    #draft .dg-item:hover { background: #fbfaf7; }
     #draft .dg-controls { position: absolute; top: 2px; right: 4px; display: flex; gap: 4px; user-select: none; }
-    #draft .dg-controls button { padding: 2px 8px; font-size: 12px; }
+    #draft .dg-controls button { padding: 2px 8px; font-size: 11px; }
     #draft .dg-summary:empty::before { content: attr(data-placeholder); color: #9ca3af; font-style: italic; }
-    .copied { color: var(--keep); font-size: 14px; font-weight: 600; }
+    .copied { font-family: var(--sans); color: var(--keep); font-size: 13px; font-weight: 600; }
     .copy-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
     /* Sign-in: hide the app until we know who is signed in */
-    body.auth-pending .container { visibility: hidden; }
-    .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-    .account { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
-
-    /* Saved clients and past newsletters */
-    .saved-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
-    .saved-row select { flex: 1; min-width: 200px; margin: 0; }
-    .saved-status { font-size: 13px; color: var(--muted); }
-    .history-list { list-style: none; margin: 0; padding: 0; }
-    .history-list li {
-      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
-      padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px;
-    }
-    .history-list li:first-child { border-top: none; }
-    .history-meta { color: var(--muted); font-size: 13px; }
-    .history-buttons { display: flex; gap: 6px; }
+    body.auth-pending .page { visibility: hidden; }
   </style>
 </head>
 <body class="auth-pending">
-  <div class="container">
-    <header class="header-row">
-      <div>
-        <h1>Press Pass <span class="badge">Prototype</span></h1>
-        <p class="sub">Build a weekly news roundup for a PR client in three steps.</p>
-      </div>
-      <div class="account">
-        <!-- ph-no-capture keeps the email out of PostHog session replays -->
-        <span id="account-email" class="ph-no-capture"></span>
-        <button type="button" class="small" id="sign-out">Sign out</button>
+  <div class="page">
+    <div class="topline">
+      <!-- ph-no-capture keeps the email out of PostHog session replays -->
+      <span id="account-email" class="ph-no-capture"></span>
+      <button type="button" class="link" id="sign-out">Sign out</button>
+    </div>
+
+    <!-- Masthead: the same on every step. The middle of the edition line is always empty. -->
+    <header class="masthead">
+      <h1>Press Pass</h1>
+      <div class="edition">
+        <span id="edition-date"></span>
+        <span></span>
+        <span id="edition-week"></span>
       </div>
     </header>
 
+    <nav class="steps" aria-label="Steps">
+      <span class="step" id="step-ind-1">I · Setup</span>
+      <span class="step" id="step-ind-2">II · Review</span>
+      <span class="step" id="step-ind-3">III · Draft</span>
+    </nav>
+
     <p class="ai-disclaimer">
-      Article summaries are written by AI from each headline and the short excerpts or abstract the search returns,
-      not the full article, so check the article before sending. Only articles from the past 7 days are shown.
-      This page uses PostHog to record clicks and session replays so we can see how people use it.
+      Summaries are written by AI from the article text, or only the public excerpt for paywalled outlets, so check each article before sending.
+      Only articles from the past 7 days are shown. This page uses PostHog to record clicks and session replays so we can see how people use it.
     </p>
 
     <div class="notice" id="file-warning" hidden>
@@ -237,43 +242,49 @@
       then open <a href="http://localhost:8000">http://localhost:8000</a>.
     </div>
 
-    <div class="steps">
-      <div class="step" id="step-ind-1">1 · Client &amp; categories</div>
-      <div class="step" id="step-ind-2">2 · Review articles</div>
-      <div class="step" id="step-ind-3">3 · Export draft</div>
-    </div>
+    <div class="layout">
+      <!-- Past editions: the signed-in user's saved newsletters (Supabase newsletters table) -->
+      <aside class="sidebar" id="history">
+        <details id="history-details" open>
+          <summary id="history-summary">Past editions</summary>
+          <h2>Past editions</h2>
+          <ul class="history-list" id="history-list"></ul>
+          <button type="button" class="link" id="new-edition">+ Start a new edition</button>
+        </details>
+      </aside>
 
-    <!-- STEP 1: client, priority sources, categories -->
-    <section class="card" id="step-1">
-      <h2>Who is this digest for?</h2>
-      <label for="saved-clients">Saved clients <span class="optional">(saved each time you click Find articles)</span></label>
-      <div class="saved-row">
-        <select id="saved-clients"><option value="">New client</option></select>
-        <button type="button" class="small" id="delete-client" disabled>Delete saved setup</button>
-        <span class="saved-status" id="saved-status"></span>
-      </div>
-      <form id="setup-form">
-        <label for="client">Client name</label>
-        <input type="text" id="client" placeholder="e.g., Acme Payments" />
+      <main>
+        <!-- STEP 1: client, priority sources, categories -->
+        <section id="step-1">
+          <h2 class="page-title">Who is this edition for?</h2>
+          <label for="saved-clients">Saved clients <span class="optional">(saved each time you click Find articles)</span></label>
+          <div class="saved-row">
+            <select id="saved-clients"><option value="">New client</option></select>
+            <button type="button" class="small" id="delete-client" disabled>Delete saved setup</button>
+            <span class="saved-status" id="saved-status"></span>
+          </div>
+          <form id="setup-form">
+            <label for="client">Client name</label>
+            <input type="text" id="client" placeholder="e.g., Acme Payments" />
 
-        <label for="companies">Competitors or companies to watch <span class="optional">(optional)</span></label>
-        <p class="hint">Separate names with commas. Articles that name the client or one of these companies score higher.</p>
-        <input type="text" id="companies" placeholder="e.g., Stripe, Adyen, PayPal" />
+            <label for="companies">Competitors or companies to watch <span class="optional">(optional)</span></label>
+            <p class="hint">Separate names with commas. Articles that name the client or one of these companies score higher.</p>
+            <input type="text" id="companies" placeholder="e.g., Stripe, Adyen, PayPal" />
 
-        <label for="past-files">Past newsletters for this client <span class="optional">(optional)</span></label>
-        <p class="hint">Upload newsletters you've already sent this client (PDF or Word .docx; for an older .doc file, open it in Word and choose File → Save As → .docx). AI reads them and writes down which topics, companies, outlets and kinds of stories this client likes, and Press Pass uses that when scoring articles. Only that summary is saved, not the files.</p>
-        <div class="pdf-row">
-          <input type="file" id="past-files" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-          <button type="button" id="learn-newsletters">Read newsletters</button>
-        </div>
-        <span class="pdf-status" id="learn-status"></span>
-        <label for="client-profile">What this client likes <span class="optional">(written from past newsletters; edit freely)</span></label>
-        <textarea class="field" id="client-profile" rows="6" maxlength="2000" placeholder="Upload past newsletters above, or type notes yourself: topics they care about, outlets they like, stories they skip."></textarea>
-        <p class="hint" id="suggested-outlets" hidden></p>
+            <label for="past-files">Past newsletters for this client <span class="optional">(optional)</span></label>
+            <p class="hint">Upload newsletters you've already sent this client (PDF or Word .docx; for an older .doc file, open it in Word and choose File → Save As → .docx). AI reads them and writes down which topics, companies, outlets and kinds of stories this client likes, and Press Pass uses that when scoring articles. Only that summary is saved, not the files.</p>
+            <div class="pdf-row">
+              <input type="file" id="past-files" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <button type="button" id="learn-newsletters">Read newsletters</button>
+            </div>
+            <span class="pdf-status" id="learn-status"></span>
+            <label for="client-profile">What this client likes <span class="optional">(written from past newsletters; edit freely)</span></label>
+            <textarea class="field" id="client-profile" rows="6" maxlength="2000" placeholder="Upload past newsletters above, or type notes yourself: topics they care about, outlets they like, stories they skip."></textarea>
+            <p class="hint" id="suggested-outlets" hidden></p>
 
-        <label for="priority-sources">Priority sources</label>
-        <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
-        <textarea class="field" id="priority-sources" rows="10">reuters.com
+            <label for="priority-sources">Priority sources</label>
+            <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
+            <textarea class="field" id="priority-sources" rows="10">reuters.com
 bloomberg.com
 ft.com
 wsj.com
@@ -284,95 +295,88 @@ cnbc.com
 paymentsdive.com
 americanbanker.com</textarea>
 
-        <label>News categories</label>
-        <p class="hint">
-          The name is what appears in the newsletter. Search terms are what Exa and the New York Times search for (blank = use the name).
-          "What it means for this client" keeps results on topic when a name could mean several things. Excluded words drop matching articles.
-        </p>
-        <div id="category-list"></div>
-        <button type="button" id="add-category">+ Add category</button>
+            <label>News categories</label>
+            <p class="hint">
+              The name is what appears in the newsletter. Search terms are what Exa and the New York Times search for (blank = use the name).
+              "What it means for this client" keeps results on topic when a name could mean several things. Excluded words drop matching articles.
+            </p>
+            <div id="category-list"></div>
+            <button type="button" id="add-category">+ Add category</button>
 
-        <p class="error" id="form-error" hidden></p>
-        <div class="actions">
-          <span></span>
-          <button type="submit" class="primary">Find articles →</button>
-        </div>
-      </form>
-    </section>
+            <p class="error" id="form-error" hidden></p>
+            <div class="actions">
+              <span></span>
+              <button type="submit" class="primary">Find articles →</button>
+            </div>
+          </form>
+        </section>
 
-    <!-- Past newsletters (shown on step 1) -->
-    <section class="card" id="history">
-      <h2>Past newsletters</h2>
-      <p class="hint" style="margin-top:-8px">A newsletter is saved here when you copy its draft in step 3. Only you can see yours.</p>
-      <ul class="history-list" id="history-list"></ul>
-    </section>
+        <!-- STEP 2: review articles -->
+        <section id="step-2" hidden>
+          <h2 class="page-title" id="results-title">This week's articles</h2>
 
-    <!-- STEP 2: review articles -->
-    <section class="card" id="step-2" hidden>
-      <h2 id="results-title">This week's articles</h2>
-
-      <details class="manual" id="manual-box" open>
-        <summary>Add an article manually</summary>
-        <form id="manual-form">
-          <p class="hint" style="margin-top:-6px">For paywalled or hand-picked stories the search missed. Manual articles are included in the newsletter and never filtered. Paste a link and click <strong>Fill from link</strong>: AI reads the article and fills in the headline, source and summary. Paywalled outlets (WSJ, NYT, FT…) can't be read from a link; upload a PDF for those.</p>
-          <label for="manual-pdf">PDF of the article <span class="optional">(optional, for paywalled articles)</span></label>
-          <p class="hint">Save the article as a PDF from your browser (File → Print → Save as PDF), then click Read PDF. AI fills in the headline, source and summary for you to check. The PDF is not saved.</p>
-          <div class="pdf-row">
-            <input type="file" id="manual-pdf" accept="application/pdf,.pdf" />
-            <button type="button" id="read-pdf">Read PDF</button>
-            <span class="pdf-status" id="pdf-status"></span>
-          </div>
-          <div class="manual-grid">
-            <div>
-              <label for="manual-url">Article URL</label>
-              <div class="pdf-row">
-                <input type="url" id="manual-url" placeholder="https://..." />
-                <button type="button" id="fill-link">Fill from link</button>
+          <!-- Add a story: one line; the full form opens after Fill from link, PDF, or "type it in" -->
+          <div class="addbar-wrap">
+            <div class="addbar">
+              <span class="addbar-label">Add a story</span>
+              <input type="url" id="manual-url" placeholder="Paste an article link" aria-label="Article link" />
+              <button type="button" id="fill-link">Fill from link</button>
+              <button type="button" id="open-pdf" title="For paywalled articles: File → Print → Save as PDF, then upload">PDF</button>
+              <input type="file" id="manual-pdf" accept="application/pdf,.pdf" hidden />
+              <button type="button" class="link" id="type-it">or type it in</button>
+            </div>
+            <span class="pdf-status" id="link-status"></span>
+            <form id="manual-form" class="manual-form" hidden>
+              <div class="manual-grid">
+                <div>
+                  <label for="manual-headline">Headline</label>
+                  <input type="text" id="manual-headline" />
+                </div>
+                <div>
+                  <label for="manual-category">Category</label>
+                  <select id="manual-category"></select>
+                </div>
               </div>
-              <span class="pdf-status" id="link-status"></span>
-            </div>
-            <div>
-              <label for="manual-category">Category</label>
-              <select id="manual-category"></select>
+              <label for="manual-source">Source <span class="optional">(optional; defaults to the website)</span></label>
+              <input type="text" id="manual-source" placeholder="e.g., The Wall Street Journal" />
+              <label for="manual-summary">Summary <span class="optional">(optional; left blank, AI writes one from the link when it can)</span></label>
+              <textarea class="field" id="manual-summary" rows="3"></textarea>
+              <p class="error" id="manual-error" hidden></p>
+              <div class="manual-buttons">
+                <button type="submit" class="primary">Add article</button>
+                <button type="button" class="link" id="manual-cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="results"></div>
+
+          <div class="actions">
+            <button type="button" id="back-to-1">← Edit setup</button>
+            <span class="tally" id="tally"></span>
+            <button type="button" class="primary" id="export">Build the draft →</button>
+          </div>
+        </section>
+
+        <!-- STEP 3: newsletter text -->
+        <section id="step-3" hidden>
+          <h2 class="page-title">Newsletter draft</h2>
+          <p class="draft-help">
+            Click anywhere to edit the text. Hover an article to move (↑ ↓) or delete (✕) it.
+            Review before sending to the client. Copying saves the newsletter to Past editions.
+          </p>
+          <div id="draft" contenteditable="true" spellcheck="true"></div>
+          <div class="actions">
+            <button type="button" id="back-to-2">← Back to review</button>
+            <div class="copy-buttons">
+              <span class="copied" id="copied" hidden></span>
+              <button type="button" id="copy-text">Copy plain text</button>
+              <button type="button" class="primary" id="copy-email">Copy for email</button>
             </div>
           </div>
-          <label for="manual-source">Source <span class="optional">(optional; defaults to the website)</span></label>
-          <input type="text" id="manual-source" placeholder="e.g., The Wall Street Journal" />
-          <label for="manual-headline">Headline <span class="optional">(filled for you by Fill from link)</span></label>
-          <input type="text" id="manual-headline" />
-          <label for="manual-summary">Summary <span class="optional">(optional; left blank, AI writes one from the link when it can)</span></label>
-          <textarea class="field" id="manual-summary" rows="3"></textarea>
-          <p class="error" id="manual-error" hidden></p>
-          <button type="submit">Add article</button>
-        </form>
-      </details>
-
-      <div id="results"></div>
-
-      <div class="actions">
-        <button type="button" id="back-to-1">← Edit categories</button>
-        <span class="tally" id="tally"></span>
-        <button type="button" class="primary" id="export">Export draft →</button>
-      </div>
-    </section>
-
-    <!-- STEP 3: newsletter text -->
-    <section class="card" id="step-3" hidden>
-      <h2>Newsletter draft</h2>
-      <p class="sub" style="margin-bottom:12px">
-        Click anywhere to edit the text. Hover an article to move (↑ ↓) or delete (✕) it.
-        Review before sending to the client. Copying saves the newsletter to Past newsletters.
-      </p>
-      <div id="draft" contenteditable="true" spellcheck="true"></div>
-      <div class="actions">
-        <button type="button" id="back-to-2">← Back to review</button>
-        <div class="copy-buttons">
-          <span class="copied" id="copied" hidden></span>
-          <button type="button" id="copy-text">Copy plain text</button>
-          <button type="button" class="primary" id="copy-email">Copy for email</button>
-        </div>
-      </div>
-    </section>
+        </section>
+      </main>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous"></script>
@@ -492,10 +496,22 @@ americanbanker.com</textarea>
         ind.classList.toggle("active", i === n);
         ind.classList.toggle("done", i < n);
       });
-      $("history").hidden = n !== 1;
-      if (n === 1 && db) renderHistory();
+      if (db) renderHistory();
       window.scrollTo(0, 0);
     }
+
+    // Masthead edition line: today's date on the left, the week it covers on the right.
+    (function fillEdition() {
+      const today = new Date();
+      const weekAgo = new Date(today - 7 * 86400000);
+      $("edition-date").textContent = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      const short = (d, opts) => d.toLocaleDateString("en-US", opts);
+      const sameMonth = weekAgo.getMonth() === today.getMonth();
+      $("edition-week").textContent = `Week of ${short(weekAgo, { month: "short", day: "numeric" })} – ${short(today, sameMonth ? { day: "numeric" } : { month: "short", day: "numeric" })}`;
+    })();
+
+    // Past editions start folded on a phone, open beside the page on wider screens.
+    if (window.matchMedia("(max-width: 860px)").matches) $("history-details").open = false;
 
     // Opening the file by double-click can't reach the server.
     if (location.protocol === "file:") $("file-warning").hidden = false;
@@ -664,65 +680,97 @@ americanbanker.com</textarea>
     }
 
     function articleCard(a, position, includedCount) {
-      const tags = [
-        a.manual ? '<span class="tag manual">Manual</span>' : "",
-        a.relevance != null ? `<span class="tag score">AI relevance ${a.relevance}/10</span>` : "",
-        REPORT_WORDS.test(a.headline) ? '<span class="tag report">Possible report</span>' : "",
-        a.filterReason ? `<span class="tag filter">Filtered: ${escapeHtml(a.filterReason)}</span>` : ""
-      ].join("");
-      const why = a.manual ? "Added manually" : timeAgo(a.date);
-      const dateText = a.date ? ` · ${escapeHtml(formatDate(a.date))}` : "";
-
-      const buttons = a.status === "filtered"
-        ? `<button type="button" class="small btn-add" data-id="${a.id}" data-action="include">Include in newsletter</button>`
-        : `<button type="button" class="small" data-id="${a.id}" data-action="up" ${position === 0 ? "disabled" : ""} title="Move up">↑</button>
-           <button type="button" class="small" data-id="${a.id}" data-action="down" ${position === includedCount - 1 ? "disabled" : ""} title="Move down">↓</button>
-           <button type="button" class="small btn-remove" data-id="${a.id}" data-action="remove">Remove</button>`;
+      const filtered = a.status === "filtered";
+      const label = a.manual ? '<span class="label">Added by you</span> · '
+        : filtered ? `<span class="label">Set aside: ${escapeHtml(a.filterReason)}</span> · `
+        : REPORT_WORDS.test(a.headline) ? '<span class="label">Possible report</span> · ' : "";
+      const when = a.manual ? "" : ` · ${escapeHtml(timeAgo(a.date))}${a.date ? " · " + escapeHtml(formatDate(a.date)) : ""}`;
+      const summary = a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>`
+        : a.summaryNote ? `<p class="summary pending">${escapeHtml(a.summaryNote)}</p>` : "";
+      const why = a.reason ? `<p class="why">${filtered ? "Why it was set aside" : "Why it's here"}: ${escapeHtml(a.reason)}${scoreParts(a)}</p>` : "";
+      const also = a.also_covered && a.also_covered.length ? `<p class="also-covered">Also covered by ${a.also_covered.map((o) =>
+          `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${escapeHtml(o.source)}</a>`).join(", ")}</p>` : "";
+      const controls = filtered
+        ? `<button type="button" class="small" data-id="${a.id}" data-action="include">Include</button>`
+        : `<button type="button" class="link" data-id="${a.id}" data-action="up" ${position === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">↑</button>
+           <button type="button" class="link" data-id="${a.id}" data-action="down" ${position === includedCount - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">↓</button>
+           <button type="button" class="link danger" data-id="${a.id}" data-action="remove">Remove</button>`;
 
       return `
-        <div class="article ${a.status}">
-          <p>${tags}</p>
-          <p class="headline"><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.headline)}</a></p>
-          <p class="meta">
-            ${escapeHtml(why)} · ${escapeHtml(a.source)}${dateText} ·
-            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.domain || "link")}</a>
-          </p>
-          ${a.summary ? `<p class="summary">${escapeHtml(a.summary)}</p>`
-            : a.summaryNote ? `<p class="summary meta">${escapeHtml(a.summaryNote)}</p>` : ""}
-          ${a.reason ? `<p class="why"><span class="why-label">${a.status === "filtered" ? "Why it was set aside" : "Why it's here"}:</span> ${escapeHtml(a.reason)}${scoreParts(a)}</p>` : ""}
-          ${a.also_covered && a.also_covered.length ? `<p class="meta also-covered">Also covered by: ${a.also_covered.map((o) =>
-              `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${escapeHtml(o.source)}</a>`).join(", ")}</p>` : ""}
-          <div class="article-buttons">${buttons}</div>
-        </div>`;
+        <article class="row ${a.status}">
+          <span class="num">${filtered ? "" : position + 1}</span>
+          <div class="body">
+            <p class="byline">${label}${escapeHtml(a.source)}${when}</p>
+            <h3><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.headline)}</a></h3>
+            ${summary}${why}${also}
+          </div>
+          <div class="controls">${controls}</div>
+        </article>`;
     }
 
     // Shown in the article's spot right after Remove.
     function feedbackCard(a) {
       const fb = a.feedback;
       return `
-        <div class="article feedback-card feedback">
-          <p>Removed: <span class="feedback-headline">${escapeHtml(a.headline)}</span></p>
-          <p>Why remove it? <span class="optional">(optional, helps improve results)</span></p>
-          <div class="chips">
-            ${FEEDBACK_REASONS.map((r) => `<button type="button" class="chip ${fb.reasons.includes(r) ? "on" : ""}" data-id="${a.id}" data-action="reason" data-reason="${r}">${r}</button>`).join("")}
+        <article class="row feedback-card">
+          <span class="num"></span>
+          <div class="body">
+            <p class="byline">Removed</p>
+            <h3>${escapeHtml(a.headline)}</h3>
+            <p class="feedback-q">Why remove it? <span class="optional">(optional, helps improve results)</span></p>
+            <div class="chips">
+              ${FEEDBACK_REASONS.map((r) => `<button type="button" class="chip ${fb.reasons.includes(r) ? "on" : ""}" data-id="${a.id}" data-action="reason" data-reason="${r}">${r}</button>`).join("")}
+            </div>
+            <textarea class="field" rows="2" data-id="${a.id}" placeholder="Anything else? (optional)">${escapeHtml(fb.note)}</textarea>
+            ${fb.error ? `<p class="error">${escapeHtml(fb.error)}</p>` : ""}
+            <div class="controls">
+              <button type="button" class="small" data-id="${a.id}" data-action="save-feedback">Submit feedback</button>
+              <button type="button" class="link" data-id="${a.id}" data-action="skip-feedback">Skip</button>
+              <button type="button" class="link" data-id="${a.id}" data-action="undo">Undo</button>
+            </div>
           </div>
-          <textarea class="field" rows="2" data-id="${a.id}" placeholder="Anything else? (optional)">${escapeHtml(fb.note)}</textarea>
-          ${fb.error ? `<p class="error">${escapeHtml(fb.error)}</p>` : ""}
-          <div class="article-buttons">
-            <button type="button" class="small" data-id="${a.id}" data-action="save-feedback">Submit feedback</button>
-            <button type="button" class="small" data-id="${a.id}" data-action="skip-feedback">Skip</button>
-            <button type="button" class="link" data-id="${a.id}" data-action="undo">Undo</button>
-          </div>
-        </div>`;
+        </article>`;
     }
 
     // Collapsed line once feedback is submitted or skipped.
     function removedLine(a) {
       return `
         <div class="removed-line">
-          <span>Removed${a.feedbackSaved ? " · feedback saved" : ""} — ${escapeHtml(a.headline)}</span>
+          <span>Removed${a.feedbackSaved ? " · feedback saved" : ""}: ${escapeHtml(a.headline)}</span>
           <button type="button" class="link" data-id="${a.id}" data-action="undo">Undo</button>
         </div>`;
+    }
+
+    // The search and AI details for one category, folded into one quiet line at the bottom.
+    function sectionDetails(cat, kept) {
+      const ai = cat.ai || {};
+      const search = cat.search || {};
+      const cost = (search.cost_usd || 0) + (ai.cost_usd || 0);
+      const top = [
+        search.sources && search.sources.length ? `Searched ${search.sources.join(", ")}` : "",
+        ai.used ? `${kept} of ${ai.articles_scored} made the ${ai.cutoff || 7}/10 cutoff` : "",
+        cost ? `$${cost.toFixed(4)}` : ""
+      ].filter(Boolean);
+      const nonEnglish = (search.non_english_dropped || 0) + (ai.non_english_dropped || 0);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const more = [
+        search.failed && search.failed.length ? `couldn't reach ${search.failed.join(", ")}` : "",
+        search.cost_usd ? `search $${search.cost_usd.toFixed(4)}` : "",
+        ai.used ? `Claude (${ai.model || "AI"}) scored and summarized $${(ai.cost_usd || 0).toFixed(4)}` : "",
+        ai.duplicates_merged ? `merged ${plural(ai.duplicates_merged, "duplicate", "duplicates")} of the same story` : "",
+        ai.feedback_examples ? `learned from ${plural(ai.feedback_examples, "of your past removals", "of your past removals")}` : "",
+        state.profile && ai.used ? "used this client's past-newsletter profile" : "",
+        ai.full_text_summaries ? `${plural(ai.full_text_summaries, "summary", "summaries")} written from the full article` : "",
+        ai.paywalled ? `${plural(ai.paywalled, "paywalled story", "paywalled stories")} (summary from the public excerpt only)` : "",
+        ai.full_text_error ? "couldn't fetch full text this time, so summaries are from excerpts" : "",
+        nonEnglish ? `left out ${plural(nonEnglish, "non-English article", "non-English articles")}` : "",
+        search.press_releases_dropped ? `left out ${plural(search.press_releases_dropped, "press release", "press releases")}` : ""
+      ].filter(Boolean);
+      if (!top.length && !more.length) return "";
+      return `<details data-cat-details="${escapeHtml(cat.name)}" ${cat.detailsOpen ? "open" : ""}>
+          <summary>${escapeHtml(top.join(" · ") || "Search details")}</summary>
+          ${more.length ? `<p>${escapeHtml(more.join(" · "))}</p>` : ""}
+        </details>`;
     }
 
     function renderResults() {
@@ -732,69 +780,58 @@ americanbanker.com</textarea>
         const all = inCategory(cat.name);
         const fetched = all.filter((a) => !a.manual && a.status !== "filtered");
         const filtered = all.filter((a) => a.status === "filtered");
+        const ai = cat.ai || {};
 
-        let status = "";
+        let notes = "";
         if (cat.status === "loading") {
-          status = `<p class="status">Loading news for ${escapeHtml(cat.name)}…</p>`;
+          notes = `<p class="status">Gathering this week's news for ${escapeHtml(cat.name)}…</p>`;
         } else if (cat.status === "error") {
-          status = `<p class="status fail">Couldn't load news for ${escapeHtml(cat.name)}: ${escapeHtml(cat.error)}</p>`;
+          notes = `<p class="status fail">Couldn't load news for ${escapeHtml(cat.name)}: ${escapeHtml(cat.error)}</p>`;
         } else {
-          const ai = cat.ai || {};
-          const search = cat.search || {};
-          if (search.sources && search.sources.length) {
-            const cost = search.cost_usd ? ` · $${search.cost_usd.toFixed(4)}` : "";
-            const failed = search.failed && search.failed.length ? ` (couldn't reach: ${search.failed.join(", ")})` : "";
-            status += `<p class="status">Searched ${escapeHtml(search.sources.join(", "))}${cost}${escapeHtml(failed)}</p>`;
-            const nonEnglish = (search.non_english_dropped || 0) + (ai.non_english_dropped || 0);
-            const skipped = [
-              nonEnglish ? `${nonEnglish} non-English article${nonEnglish === 1 ? "" : "s"}` : "",
-              search.press_releases_dropped ? `${search.press_releases_dropped} press release${search.press_releases_dropped === 1 ? "" : "s"}` : ""
-            ].filter(Boolean);
-            if (skipped.length) status += `<p class="status">Left out ${skipped.join(" and ")}</p>`;
-          }
-          if (ai.used) {
-            const merged = ai.duplicates_merged ? ` · merged ${ai.duplicates_merged} duplicate${ai.duplicates_merged === 1 ? "" : "s"} of the same story` : "";
-            status += `<p class="status ai">Claude scored ${ai.articles_scored} articles and wrote summaries${merged} · $${ai.cost_usd.toFixed(4)}</p>`;
-            const full = ai.full_text_summaries ? `${ai.full_text_summaries} summar${ai.full_text_summaries === 1 ? "y" : "ies"} written from the full article` : "";
-            const paywalled = ai.paywalled ? `${ai.paywalled} from paywalled outlet${ai.paywalled === 1 ? "" : "s"} (summary from the public excerpt only)` : "";
-            const fullFail = ai.full_text_error ? "couldn't fetch full text this time, so summaries are from excerpts" : "";
-            const parts = [full, paywalled, fullFail].filter(Boolean);
-            if (parts.length) status += `<p class="status">${escapeHtml(parts.join(" · "))}</p>`;
-          } else if (ai.error) {
-            status += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
-          }
-          if (ai.used) {
-            const learned = ai.feedback_examples ? ` · learned from ${ai.feedback_examples} of your past removal${ai.feedback_examples === 1 ? "" : "s"}` : "";
-            status += `<p class="status">${fetched.length} article${fetched.length === 1 ? "" : "s"} made the ${ai.cutoff || 7}/10 cutoff${learned}</p>`;
+          if (!ai.used && ai.error) {
+            notes += `<p class="status weak">AI scoring unavailable (${escapeHtml(ai.error)}), so articles are ranked by source and date.</p>`;
           }
           if (fetched.length < 2) {
             const hint = ai.used && filtered.length ? ` The rest are under "Show filtered", each with the reason it was set aside.` : "";
-            status += `<p class="status weak">${fetched.length ? "Only one strong match" : "No strong matches"} this week.${hint}
+            notes += `<p class="status weak">${fetched.length ? "Only one strong match" : "No strong matches"} this week.${hint}
               Try refining the search terms or "What it means for this client".</p>`;
           }
         }
 
         // Included and removed articles in newsletter order; removed ones hold their spot.
         const included = includedIn(cat.name);
-        const cards = orderedIn(cat.name).map((a) => {
+        const rows = orderedIn(cat.name).map((a) => {
           if (a.status === "included") return articleCard(a, included.indexOf(a), included.length);
           return a.feedbackOpen ? feedbackCard(a) : removedLine(a);
         }).join("");
 
-        let filteredHtml = "";
-        if (filtered.length) {
-          filteredHtml = `<button type="button" class="small filtered-toggle" data-cat="${ci}" data-action="toggle-filtered">
-              ${cat.showFiltered ? "Hide" : "Show"} filtered (${filtered.length})</button>`;
-          if (cat.showFiltered) filteredHtml += filtered.map((a) => articleCard(a)).join("");
-        }
+        const toggle = filtered.length ? `<button type="button" class="link" data-cat="${ci}" data-action="toggle-filtered">
+            ${cat.showFiltered ? "Hide" : "Show"} filtered (${filtered.length}) ${cat.showFiltered ? "‹" : "›"}</button>` : "";
+        const filteredRows = filtered.length && cat.showFiltered
+          ? `<p class="filtered-head">Set aside</p>${filtered.map((a) => articleCard(a)).join("")}` : "";
+        const foot = cat.status === "ok" ? `<div class="section-foot">${sectionDetails(cat, fetched.length)}${toggle}</div>` : "";
 
-        return `<div class="category"><h3>${escapeHtml(cat.name)}</h3>${status}${cards}${filteredHtml}</div>`;
+        return `
+          <section class="section">
+            <div class="section-head">
+              <h2>${escapeHtml(cat.name)}</h2>
+              <span class="count">${cat.status === "ok" ? `${included.length} in the newsletter` : ""}</span>
+            </div>
+            ${notes}${rows}${foot}${filteredRows}
+          </section>`;
       }).join("");
 
       const all = state.categories.flatMap((c) => inCategory(c.name));
       const count = (s) => all.filter((a) => a.status === s).length;
       $("tally").textContent = `${count("included")} in newsletter · ${count("removed")} removed · ${count("filtered")} filtered`;
     }
+
+    // Keep a section's details line open or closed across re-renders.
+    $("results").addEventListener("toggle", (event) => {
+      const name = event.target.dataset && event.target.dataset.catDetails;
+      const cat = name && state.categories.find((c) => c.name === name);
+      if (cat) cat.detailsOpen = event.target.open;
+    }, true);
 
     // Swap an included article with the nearest included neighbor in the same category.
     function move(id, direction) {
@@ -929,12 +966,25 @@ americanbanker.com</textarea>
         }).finally(renderResults);
       }
       track("article_added_manually", { from_pdf: pdfUsed, from_link: linkUsed });
-      $("manual-url").value = $("manual-headline").value = $("manual-summary").value = $("manual-source").value = "";
-      $("manual-pdf").value = "";
-      $("pdf-status").textContent = $("link-status").textContent = "";
-      pdfUsed = linkUsed = false;
+      closeManualForm();
       renderResults();
     });
+
+    function openManualForm() {
+      $("manual-form").hidden = false;
+      $("manual-error").hidden = true;
+    }
+    function closeManualForm() {
+      $("manual-url").value = $("manual-headline").value = $("manual-summary").value = $("manual-source").value = "";
+      $("manual-pdf").value = "";
+      $("link-status").textContent = "";
+      $("manual-form").hidden = true;
+      pdfUsed = linkUsed = false;
+    }
+    $("type-it").addEventListener("click", () => { openManualForm(); $("manual-headline").focus(); });
+    $("manual-cancel").addEventListener("click", closeManualForm);
+    $("open-pdf").addEventListener("click", () => $("manual-pdf").click());
+    $("manual-pdf").addEventListener("change", () => { if ($("manual-pdf").files[0]) readPdf(); });
 
     // Fill from link: the server reads the article (free outlets only; paywalled
     // ones are never fetched) and Claude returns headline, source and summary.
@@ -959,8 +1009,9 @@ americanbanker.com</textarea>
       try {
         const data = await readLink(url);
         if (data.source && !$("manual-source").value.trim()) $("manual-source").value = data.source;
+        openManualForm();
         if (data.paywalled) {
-          status.textContent = `${data.source} is paywalled, so Press Pass doesn't read it. Upload a PDF above, or type the headline and summary.`;
+          status.textContent = `${data.source} is paywalled, so Press Pass doesn't read it. Click PDF to upload the article, or type the headline and summary below.`;
         } else {
           $("manual-headline").value = data.headline;
           $("manual-summary").value = data.summary;
@@ -979,12 +1030,12 @@ americanbanker.com</textarea>
     // Read PDF: send the file to the local server, which asks Claude for the
     // headline, source and summary. The fields stay editable before adding.
     let pdfUsed = false;
-    $("read-pdf").addEventListener("click", async () => {
+    async function readPdf() {
       const file = $("manual-pdf").files[0];
-      const status = $("pdf-status");
+      const status = $("link-status");
       if (!file) { status.textContent = "Choose a PDF first."; return; }
       if (file.size > 10 * 1024 * 1024) { status.textContent = "That PDF is over 10 MB."; return; }
-      const button = $("read-pdf");
+      const button = $("open-pdf");
       button.disabled = true;
       status.textContent = "Reading the PDF… (about 10–20 seconds)";
       try {
@@ -999,7 +1050,8 @@ americanbanker.com</textarea>
         if (data.source) $("manual-source").value = data.source;
         $("manual-summary").value = data.summary;
         pdfUsed = true;
-        status.textContent = `Done · $${data.cost_usd.toFixed(4)}. Check the fields, add the article URL, then click Add article.`;
+        openManualForm();
+        status.textContent = `Done · $${data.cost_usd.toFixed(4)}. Check the fields${isWebUrl($("manual-url").value.trim()) ? "" : ", paste the article link above"}, then click Add article.`;
         track("pdf_read", { ok: true, cost_usd: data.cost_usd, size_kb: Math.round(file.size / 1024) });
       } catch (err) {
         status.textContent = `Couldn't read the PDF: ${err.message}`;
@@ -1007,7 +1059,7 @@ americanbanker.com</textarea>
       } finally {
         button.disabled = false;
       }
-    });
+    }
 
     $("back-to-1").addEventListener("click", () => showStep(1));
 
@@ -1376,6 +1428,7 @@ americanbanker.com</textarea>
       if (error) { flashCopied(`Copied, but couldn't save to Past newsletters: ${error.message}`); return; }
       if (!currentNewsletterId) track("newsletter_saved", { articles: included.length });
       currentNewsletterId = data.id;
+      renderHistory();
     }
 
     async function renderHistory() {
@@ -1384,18 +1437,17 @@ americanbanker.com</textarea>
         .select("id, client_name, categories, articles, created_at, updated_at")
         .order("created_at", { ascending: false })
         .limit(50);
-      if (error) { list.innerHTML = `<li class="error">Couldn't load past newsletters: ${escapeHtml(error.message)}</li>`; return; }
+      if (error) { list.innerHTML = `<li class="error">Couldn't load past editions: ${escapeHtml(error.message)}</li>`; return; }
+      $("history-summary").textContent = `Past editions (${data.length})`;
       list.innerHTML = data.length ? data.map((n) => `
-        <li>
-          <div>
-            <strong>${escapeHtml(n.client_name)}</strong>
-            <div class="history-meta">${escapeHtml(formatDate(n.created_at))} · ${n.articles.length} article${n.articles.length === 1 ? "" : "s"} · ${escapeHtml(n.categories.join(", "))}</div>
-          </div>
-          <div class="history-buttons">
-            <button type="button" class="small" data-history="open" data-id="${n.id}">Open</button>
-            <button type="button" class="small" data-history="delete" data-id="${n.id}">Delete</button>
-          </div>
-        </li>`).join("") : `<li class="history-meta">No newsletters yet.</li>`;
+        <li class="${n.id === currentNewsletterId ? "current" : ""}">
+          <button type="button" class="open-edition" data-history="open" data-id="${n.id}">
+            <span class="date">${escapeHtml(formatDate(n.created_at))} · ${n.articles.length} article${n.articles.length === 1 ? "" : "s"}</span>
+            <span class="client">${escapeHtml(n.client_name)}</span>
+            <span class="cats">${escapeHtml(n.categories.join(", "))}</span>
+          </button>
+          <button type="button" class="link danger delete-edition" data-history="delete" data-id="${n.id}" aria-label="Delete this edition">Delete</button>
+        </li>`).join("") : `<li class="history-empty">No editions yet. A newsletter is saved here when you copy its draft.</li>`;
     }
 
     $("history-list").addEventListener("click", async (event) => {
@@ -1403,9 +1455,10 @@ americanbanker.com</textarea>
       if (!btn) return;
       const id = btn.dataset.id;
       if (btn.dataset.history === "delete") {
-        if (!confirm("Delete this newsletter? This can't be undone.")) return;
+        if (!confirm("Delete this edition? This can't be undone.")) return;
         const { error } = await db.from("newsletters").delete().eq("id", id);
         if (error) alert(`Couldn't delete: ${error.message}`);
+        if (id === currentNewsletterId) currentNewsletterId = null;
         return renderHistory();
       }
       const { data, error } = await db.from("newsletters").select("id, client_name, categories, draft_html").eq("id", id).single();
@@ -1418,7 +1471,24 @@ americanbanker.com</textarea>
       viewingSaved = true;
       $("copied").hidden = true;
       track("newsletter_opened");
+      if (window.matchMedia("(max-width: 860px)").matches) $("history-details").open = false;
       showStep(3);
+    });
+
+    // Start a new edition: clear the review and draft, keep the setup form as it is.
+    $("new-edition").addEventListener("click", () => {
+      const reviewed = state.order.length > 0 && !currentNewsletterId;
+      if (reviewed && !confirm("Start a new edition? The articles you've reviewed in this one will be cleared.")) return;
+      state.articles = {};
+      state.order = [];
+      state.categories = [];
+      $("draft").innerHTML = "";
+      draftEdited = false;
+      currentNewsletterId = null;
+      viewingSaved = false;
+      closeManualForm();
+      track("new_edition_started");
+      showStep(1);
     });
 
     $("sign-out").addEventListener("click", () => {
