@@ -17,11 +17,18 @@ create table if not exists public.client_profiles (
   client_name      text not null check (char_length(client_name) between 1 and 200),
   companies        text[] not null default '{}',   -- competitors / companies to watch
   priority_sources text[] not null default '{}',   -- domains such as reuters.com
-  categories       jsonb  not null default '[]',   -- [{ "name", "terms", "exclude" }]
+  categories       jsonb  not null default '[]',   -- [{ "name", "terms", "exclude", "about" }]
+  learned_profile  text   not null default ''      -- "what this client likes", learned from uploaded past newsletters
+                   check (char_length(learned_profile) <= 2000),
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
   unique (user_id, client_name)                    -- one saved setup per client per user
 );
+
+-- Added Nov 2026 for databases created before learned_profile existed (safe to run again).
+alter table public.client_profiles
+  add column if not exists learned_profile text not null default ''
+  check (char_length(learned_profile) <= 2000);
 
 -- ---------------------------------------------------------------------------
 -- Past newsletters: saved when a draft is copied in step 3.

@@ -144,6 +144,8 @@
     .pdf-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
     .pdf-status { font-size: 13px; color: var(--muted); }
     .pdf-row input[type=url] { flex: 1; min-width: 180px; margin: 0; }
+    #learn-status { display: block; margin: -4px 0 12px; }
+    #suggested-outlets button { margin: 4px 6px 0 0; }
     #link-status { display: block; margin: -4px 0 12px; }
     .ai-disclaimer { font-size: 13px; color: var(--muted); background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
     .status.ai { color: #5b21b6; }
@@ -257,6 +259,17 @@
         <label for="companies">Competitors or companies to watch <span class="optional">(optional)</span></label>
         <p class="hint">Separate names with commas. Articles that name the client or one of these companies score higher.</p>
         <input type="text" id="companies" placeholder="e.g., Stripe, Adyen, PayPal" />
+
+        <label for="past-files">Past newsletters for this client <span class="optional">(optional)</span></label>
+        <p class="hint">Upload newsletters you've already sent this client (PDF or Word .docx; for an older .doc file, open it in Word and choose File → Save As → .docx). AI reads them and writes down which topics, companies, outlets and kinds of stories this client likes, and Press Pass uses that when scoring articles. Only that summary is saved, not the files.</p>
+        <div class="pdf-row">
+          <input type="file" id="past-files" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          <button type="button" id="learn-newsletters">Read newsletters</button>
+        </div>
+        <span class="pdf-status" id="learn-status"></span>
+        <label for="client-profile">What this client likes <span class="optional">(written from past newsletters; edit freely)</span></label>
+        <textarea class="field" id="client-profile" rows="6" maxlength="2000" placeholder="Upload past newsletters above, or type notes yourself: topics they care about, outlets they like, stories they skip."></textarea>
+        <p class="hint" id="suggested-outlets" hidden></p>
 
         <label for="priority-sources">Priority sources</label>
         <p class="hint">One publication domain per line. These are searched first and ranked above other sources.</p>
@@ -570,6 +583,7 @@ americanbanker.com</textarea>
       state.client = client;
       state.companies = [...new Set($("companies").value.split(",").map((c) => c.trim()).filter(Boolean))];
       state.priority = [...new Set(domains)];
+      state.profile = $("client-profile").value.trim();
       track("search_started", { categories: cats.length, priority_sources: new Set(domains).size, companies_to_watch: state.companies.length });
       state.categories = cats.map((c) => ({ ...c, status: "loading", error: "", showFiltered: false }));
       saveClientSetup(cats);
@@ -596,7 +610,8 @@ americanbanker.com</textarea>
         priority: state.priority.join(","),
         category: cat.name,
         client: state.client,
-        companies: state.companies.join(",")
+        companies: state.companies.join(","),
+        profile: state.profile || ""
       });
       try {
         const response = await PressPassAuth.apiFetch(`/api/news?${params}`);
@@ -1168,15 +1183,22 @@ americanbanker.com</textarea>
     // ---------------------------------------------------------------
     let db = null;                 // Supabase client, set once signed in
     let savedClients = [];         // this user's client_profiles rows
+    let profileColumnMissing = false; // true until supabase/schema.sql's learned_profile update is run
     let currentNewsletterId = null; // row id once this draft has been saved
     let viewingSaved = false;      // step 3 is showing a past newsletter
 
     function setSavedStatus(text) { $("saved-status").textContent = text; }
 
     async function loadSavedClients() {
-      const { data, error } = await db.from("client_profiles")
-        .select("id, client_name, companies, priority_sources, categories")
+      let { data, error } = await db.from("client_profiles")
+        .select("id, client_name, companies, priority_sources, categories, learned_profile")
         .order("client_name");
+      if (error && /learned_profile/.test(error.message)) {
+        // The database update for "What this client likes" hasn't been run yet; keep working without it.
+        profileColumnMissing = true;
+        ({ data, error } = await db.from("client_profiles")
+          .select("id, client_name, companies, priority_sources, categories").order("client_name"));
+      }
       if (error) { setSavedStatus(`Couldn't load saved clients: ${error.message}`); return; }
       savedClients = data;
       const selected = $("saved-clients").value;
@@ -1188,13 +1210,16 @@ americanbanker.com</textarea>
 
     // Upsert: one saved setup per client name, replaced on each search.
     async function saveClientSetup(cats) {
-      const { data, error } = await db.from("client_profiles").upsert({
+      const row = {
         client_name: state.client,
         companies: state.companies,
         priority_sources: state.priority,
         categories: cats.map(({ name, terms, exclude, about }) => ({ name, terms, exclude, about })),
         updated_at: new Date().toISOString()
-      }, { onConflict: "user_id,client_name" }).select("id").single();
+      };
+      if (!profileColumnMissing) row.learned_profile = state.profile || "";
+      const { data, error } = await db.from("client_profiles")
+        .upsert(row, { onConflict: "user_id,client_name" }).select("id").single();
       if (error) { setSavedStatus(`Couldn't save this client: ${error.message}`); return; }
       track("client_saved", { categories: cats.length });
       await loadSavedClients();
@@ -1208,6 +1233,9 @@ americanbanker.com</textarea>
       $("client").value = profile ? profile.client_name : "";
       $("companies").value = profile ? profile.companies.join(", ") : "";
       if (profile) $("priority-sources").value = profile.priority_sources.join("\n");
+      $("client-profile").value = (profile && profile.learned_profile) || "";
+      $("suggested-outlets").hidden = true;
+      $("learn-status").textContent = "";
       const cats = profile ? profile.categories : [];
       $("category-list").innerHTML = "";
       for (let i = 0; i < Math.max(MIN_CATEGORIES, cats.length); i++) addCategoryInput();
@@ -1237,6 +1265,92 @@ americanbanker.com</textarea>
       $("saved-clients").value = "";
       await loadSavedClients();
       setSavedStatus("Deleted.");
+    });
+
+    // Read past newsletters: each file goes to the server one at a time and Claude
+    // updates the "What this client likes" profile. Files are never saved.
+    function fileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+        reader.onerror = () => reject(new Error("couldn't open the file"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function showSuggestedOutlets(outlets) {
+      const listed = new Set($("priority-sources").value.split(/\s+/).map(cleanDomain).filter(Boolean));
+      const fresh = outlets.filter((d) => !listed.has(d));
+      const box = $("suggested-outlets");
+      box.hidden = !fresh.length;
+      box.innerHTML = fresh.length ? `Outlets these newsletters cite that aren't in your priority sources:<br>` +
+        fresh.map((d) => `<button type="button" class="small" data-outlet="${escapeHtml(d)}">+ ${escapeHtml(d)}</button>`).join("") : "";
+    }
+
+    $("suggested-outlets").addEventListener("click", (event) => {
+      const domain = event.target.dataset.outlet;
+      if (!domain) return;
+      const box = $("priority-sources");
+      box.value = box.value.trim() + "\n" + domain;
+      event.target.remove();
+      if (!$("suggested-outlets").querySelector("button")) $("suggested-outlets").hidden = true;
+      track("suggested_outlet_added");
+    });
+
+    $("learn-newsletters").addEventListener("click", async () => {
+      const files = [...$("past-files").files];
+      const status = $("learn-status");
+      const client = $("client").value.trim();
+      if (!client) { status.textContent = "Type the client name first."; return; }
+      if (!files.length) { status.textContent = "Choose one or more PDF or .docx files first."; return; }
+      const doc = files.find((f) => /\.doc$/i.test(f.name));
+      if (doc) { status.textContent = `"${doc.name}" is an older .doc file. Open it in Word, choose File → Save As → Word Document (.docx), and upload that.`; return; }
+      const bad = files.find((f) => !/\.(pdf|docx)$/i.test(f.name));
+      if (bad) { status.textContent = `"${bad.name}" isn't a PDF or .docx file.`; return; }
+      const big = files.find((f) => f.size > 10 * 1024 * 1024);
+      if (big) { status.textContent = `"${big.name}" is over 10 MB.`; return; }
+
+      const button = $("learn-newsletters");
+      button.disabled = true;
+      let cost = 0, done = 0, outlets = [];
+      const problems = [];
+      for (const [i, file] of files.entries()) {
+        status.textContent = `Reading ${i + 1} of ${files.length}: ${file.name}… (about 10–20 seconds each)`;
+        try {
+          const response = await PressPassAuth.apiFetch("/api/newsletter", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ client, profile: $("client-profile").value, file: await fileAsBase64(file) })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+          $("client-profile").value = data.profile;
+          outlets = [...new Set([...outlets, ...data.outlets])];
+          cost += data.cost_usd;
+          done++;
+        } catch (err) {
+          problems.push(`${file.name}: ${err.message}`);
+        }
+      }
+      button.disabled = false;
+      $("past-files").value = "";
+      showSuggestedOutlets(outlets);
+      track("past_newsletters_read", { files: files.length, ok: done, cost_usd: cost });
+
+      let saved = "";
+      const selected = savedClients.find((c) => c.id === $("saved-clients").value && c.client_name === client);
+      if (done && selected && !profileColumnMissing) {
+        const { error } = await db.from("client_profiles")
+          .update({ learned_profile: $("client-profile").value.trim(), updated_at: new Date().toISOString() })
+          .eq("id", selected.id);
+        saved = error ? ` Couldn't save it yet (${error.message}); it will save when you click Find articles.` : " Saved with this client.";
+        if (!error) selected.learned_profile = $("client-profile").value.trim();
+      } else if (done) {
+        saved = profileColumnMissing ? " (Not saved: the database update for this field hasn't been run yet.)"
+                                     : " It will be saved with this client when you click Find articles.";
+      }
+      status.textContent = (done ? `Read ${done} of ${files.length} newsletter${files.length === 1 ? "" : "s"} · $${cost.toFixed(4)}. Check the summary below.${saved}` : "")
+        + (problems.length ? ` Couldn't read: ${problems.join("; ")}` : "");
     });
 
     // Save the draft when it is copied. Copying again updates the same row.
