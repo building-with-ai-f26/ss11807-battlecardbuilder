@@ -61,6 +61,24 @@ class FullTextTests(unittest.TestCase):
         self.assertEqual(list(texts), [urls[0]])  # Exa said the second one failed
         self.assertEqual(costs, [0.002])
 
+    def test_long_articles_are_not_cut_to_the_short_description_size(self):
+        # Build 4 eval: full text was cut to 1,200 characters, so summaries were written from a fragment.
+        long_text = "Word " * 3000  # 15,000 characters
+        answer = {"results": [{"url": "https://coindesk.com/a", "title": "T", "text": long_text}],
+                  "statuses": [{"id": "https://coindesk.com/a", "status": "success"}]}
+        with mock.patch.dict(os.environ, KEYS), mock.patch.object(server, "post_json", return_value=answer):
+            text = server.fetch_full_text(["https://coindesk.com/a"])["https://coindesk.com/a"]["text"]
+        self.assertGreater(len(text), server.MAX_DESCRIPTION)
+        self.assertLessEqual(len(text), server.FULL_TEXT_CHARS)
+
+    def test_every_summary_step_uses_the_fact_rules(self):
+        for prompt in (server.CLAUDE_INSTRUCTIONS, server.SUMMARY_INSTRUCTIONS, server.ARTICLE_INSTRUCTIONS,
+                       server.PDF_INSTRUCTIONS):
+            self.assertIn(server.FACT_RULES, prompt)
+        self.assertIn("never mention the newsletter's client", server.FACT_RULES)
+        self.assertIn("never add first names, past prices, dates", server.FACT_RULES)
+        self.assertNotIn("why it matters for this category", server.SUMMARY_INSTRUCTIONS)
+
     def test_nothing_without_a_key(self):
         with mock.patch.dict(os.environ, {"EXA_API_KEY": ""}), mock.patch.object(server, "post_json") as post:
             self.assertEqual(server.fetch_full_text(["https://a.com/x"]), {})
