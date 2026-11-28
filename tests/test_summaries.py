@@ -79,6 +79,13 @@ class FullTextTests(unittest.TestCase):
         self.assertIn("never add first names, past prices, dates", server.FACT_RULES)
         self.assertNotIn("why it matters for this category", server.SUMMARY_INSTRUCTIONS)
 
+    def test_scoring_has_room_for_long_answers(self):
+        # Build 4 eval: scoring answers reached ~8,000 tokens, were cut off, and fell back to no-AI ranking.
+        import inspect
+        params = inspect.signature(server.call_claude).parameters
+        self.assertGreaterEqual(params["max_tokens"].default, 16000)
+        self.assertGreaterEqual(params["timeout"].default, 120)  # longer answers take longer to write
+
     def test_nothing_without_a_key(self):
         with mock.patch.dict(os.environ, {"EXA_API_KEY": ""}), mock.patch.object(server, "post_json") as post:
             self.assertEqual(server.fetch_full_text(["https://a.com/x"]), {})

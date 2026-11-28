@@ -686,7 +686,12 @@ def build_claude_prompt(client, category, terms, articles, companies=(), about="
     return "\n".join(lines)
 
 
-def call_claude(content, system=CLAUDE_INSTRUCTIONS, schema=SCORE_SCHEMA, max_tokens=8000, timeout=60):
+# Build 4 eval: scoring answers reached ~8,000 tokens and were cut off, which silently fell back to
+# ranking without AI. 16,000 leaves room; you only pay for tokens actually used.
+SCORE_MAX_TOKENS = 16000
+
+
+def call_claude(content, system=CLAUDE_INSTRUCTIONS, schema=SCORE_SCHEMA, max_tokens=SCORE_MAX_TOKENS, timeout=120):
     """One Messages API request using only the standard library. Returns the parsed JSON response.
 
     content is the user message: a string, or a list of content blocks (for example a PDF plus text).
